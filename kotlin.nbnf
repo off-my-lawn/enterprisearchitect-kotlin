@@ -235,7 +235,7 @@ parse(<kotlinFile>, <languageEscape>);
 							[<receiverType> "."]
 							(<multiVariableDeclaration> | <variableDeclaration>)
 							[<typeConstraints>]
-							["=" attribute("DEFAULT", <expression>) | <propertyDelegate>] ";"
+							["=" attribute("DEFAULT", <expression>) | <propertyDelegate>] [";"]
 							[<getter> [[<semi>] <setter>] | <setter> [[<semi>] <getter>]]
 							);
 
@@ -286,7 +286,7 @@ parse(<kotlinFile>, <languageEscape>);
 
 <type>		::= [<typeModifiers>] (<parenthesizedType>|<nullableType>|<typeReference>|<functionType>);
 
-<typeReference>	::= <userType> "dynamic";
+<typeReference>	::= <userType> | "dynamic";
 
 <nullableType>	::= (<typeReference> | <parenthesizedType>) <quest>+;
 
@@ -397,6 +397,22 @@ parse(<kotlinFile>, <languageEscape>);
 
 <platformModifier>		::= "expect" | "actual";
 
+
+////////////////////////////////////////////////////////
+// Syntax Grammar : Annotations
+////////////////////////////////////////////////////////
+
+<annotation>			::= <singleAnnotation> | <multiAnnotation>;
+
+<singleAnnotation>		::= <annotationUseSiteTarget> <unescapedAnnotation> |
+							"@" <unescapedAnnotation>;
+
+<multiAnnotation>		::= <annotationUseSiteTarget> "[" <unescapedAnnotation>+ "]" |
+							"@" "[" <unescapedAnnotation> "]";
+
+<annotationUseSiteTarget>	::= "@" ("field" | "property" | "get" | "set" | "receiver" | "param" | "setparam" | "delegate") ":";
+
+<unescapedAnnotation>	::= <userType>;
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Identifiers
@@ -665,182 +681,10 @@ parse(<kotlinFile>, <languageEscape>);
 // Placeholders for rules not yet implemented
 ////////////////////////////////////////////////////////
 
-<annotation> ::= fail();
 <assignableExpression> ::= fail();
 <delegationSpecifier> ::= fail();
 <semi> ::= fail();
 <semis> ::= fail();
 <typeParameters> ::= fail();
-<unescapedAnnotation> ::= fail();
 
 
-
-
-// ***
-// * Parser rules
-// ***
-
-/*
-// Expressions
-<expression>							::= <assignmentExpression>;
-
-<assignmentExpression>					::= preProcess(<conditionalExpression>,
-												node("ASSIGNMENT", node("LHS", <?>)							"=" node("RHS", <assignmentExpression>)) |
-												node("MULTIPLY_ASSIGNMENT", node("LHS", <?>)				"*=" node("RHS", <assignmentExpression>)) |
-												node("DIVIDE_ASSIGNMENT", node("LHS", <?>)					"/=" node("RHS", <assignmentExpression>)) |
-												node("MOD_ASSIGNMENT", node("LHS", <?>)						"%=" node("RHS", <assignmentExpression>)) |
-												node("PLUS_ASSIGNMENT", node("LHS", <?>)					"+=" node("RHS", <assignmentExpression>)) |
-												node("MINUS_ASSIGNMENT", node("LHS", <?>)					"-=" node("RHS", <assignmentExpression>)) |
-												node("SHIFT_LEFT_ASSIGNMENT", node("LHS", <?>)				"<" "<" "=" node("RHS", <assignmentExpression>)) |
-												node("SIGNED_SHIFT_RIGHT_ASSIGNMENT", node("LHS", <?>)		">" ">" "=" node("RHS", <assignmentExpression>)) |
-												node("UNSIGNED_SHIFT_RIGHT_ASSIGNMENT", node("LHS", <?>)	">" ">" ">" "=" node("RHS", <assignmentExpression>)) |
-												node("BITWISE_AND_ASSIGNMENT", node("LHS", <?>)				"&=" node("RHS", <assignmentExpression>)) |
-												node("BITWISE_XOR_ASSIGNMENT", node("LHS", <?>)				"^=" node("RHS", <assignmentExpression>)) |
-												node("BITWISE_OR_ASSIGNMENT", node("LHS", <?>)				"|=" node("RHS", <assignmentExpression>)) |
-												<?>
-											);
-
-<assignment>							::= preProcess(<conditionalExpression>,
-												node("ASSIGNMENT", node("LHS", <?>)							"=" node("RHS", <assignmentExpression>)) |
-												node("MULTIPLY_ASSIGNMENT", node("LHS", <?>)				"*=" node("RHS", <assignmentExpression>)) |
-												node("DIVIDE_ASSIGNMENT", node("LHS", <?>)					"/=" node("RHS", <assignmentExpression>)) |
-												node("MOD_ASSIGNMENT", node("LHS", <?>)						"%=" node("RHS", <assignmentExpression>)) |
-												node("PLUS_ASSIGNMENT", node("LHS", <?>)					"+=" node("RHS", <assignmentExpression>)) |
-												node("MINUS_ASSIGNMENT", node("LHS", <?>)					"-=" node("RHS", <assignmentExpression>)) |
-												node("SHIFT_LEFT_ASSIGNMENT", node("LHS", <?>)				"<" "<" "=" node("RHS", <assignmentExpression>)) |
-												node("SIGNED_SHIFT_RIGHT_ASSIGNMENT", node("LHS", <?>)		">" ">" "=" node("RHS", <assignmentExpression>)) |
-												node("UNSIGNED_SHIFT_RIGHT_ASSIGNMENT", node("LHS", <?>)	">" ">" ">" "=" node("RHS", <assignmentExpression>)) |
-												node("BITWISE_AND_ASSIGNMENT", node("LHS", <?>)				"&=" node("RHS", <assignmentExpression>)) |
-												node("BITWISE_XOR_ASSIGNMENT", node("LHS", <?>)				"^=" node("RHS", <assignmentExpression>)) |
-												node("BITWISE_OR_ASSIGNMENT", node("LHS", <?>)				"|=" node("RHS", <assignmentExpression>))
-											);
-
-<conditionalExpression>					::= preProcess(<logicalOrExpression>, 
-												node("CONDITIONAL", node("CONDITION", <?>) "?" node("TRUE", <assignmentExpression>) ":" node("FALSE", <assignmentExpression>)) |
-												<?>
-											);
-
-<bitwiseOrExpression>					::= preProcess(<bitwiseXorExpression>,
-												node("BITWISE_OR", node("LHS", <?>)		"|" node("RHS", <bitwiseOrExpression>)) |
-												<?>
-											);
-
-<bitwiseXorExpression>					::= preProcess(<bitwiseAndExpression>,
-												node("BITWISE_XOR", node("LHS", <?>)	"^" node("RHS", <bitwiseXorExpression>)) |
-												<?>
-											);
-
-<bitwiseAndExpression>					::= preProcess(<equalityExpression>,
-												node("BITWISE_AND", node("LHS", <?>)	"&" node("RHS", <bitwiseAndExpression>)) |
-												<?>
-											);
-
-<equalityExpression>					::= preProcess(<relationalExpression>,
-												node("EQUAL", node("LHS", <?>)			"==" node("RHS", <equalityExpression>)) |
-												node("NOT_EQUAL", node("LHS", <?>)		"!=" node("RHS", <equalityExpression>)) |
-												<?>
-											);
-
-<relationalExpression>					::= preProcess(<shiftExpression>,
-												node("LESSER_EQUAL", node("LHS", <?>)	"<" "=" node("RHS", <relationalExpression>)) |
-												node("GREATER_EQUAL", node("LHS", <?>)	">" "=" node("RHS", <relationalExpression>)) |
-												node("LESSER", node("LHS", <?>)			"<" node("RHS", <relationalExpression>)) |
-												node("GREATER", node("LHS", <?>)		">" node("RHS", <relationalExpression>)) |
-												node("INSTANCE_OF", node("LHS", <?>)	"instanceof" node("RHS", node("NAME", <type> [<templateSpec>] [<arraySpec>]))) |
-												<?>
-											);
-
-<shiftExpression>						::= preProcess(<additiveExpression>,
-												node("SHIFT_LEFT", node("LHS", <?>)				"<" "<" node("RHS", <shiftExpression>)) |
-												// shift right has the > chars as seperate keywords to stop the lexer from
-												// thinking nested template specs are shifts.  ie:
-												// Iterator<Entry<K,V>> i = entrySet().iterator();
-												node("SIGNED_SHIFT_RIGHT", node("LHS", <?>)		">" ">" node("RHS", <shiftExpression>)) |
-												node("UNSIGNED_SHIFT_RIGHT", node("LHS", <?>)	">" ">" ">" node("RHS", <shiftExpression>)) |
-												<?>
-											);
-
-<additiveExpression>					::= preProcess(<multiplicativeExpression>,
-												node("ADD", node("LHS", <?>)		"+" node("RHS", <additiveExpression>)) |
-												node("SUBTRACT", node("LHS", <?>)	"-" node("RHS", <additiveExpression>)) |
-												<?>
-											);
-
-<multiplicativeExpression>				::= preProcess(<unaryExpression>,
-												node("MULTIPLY", node("LHS", <?>)	"*" node("RHS", <multiplicativeExpression>)) |
-												node("DIVIDE", node("LHS", <?>)		"/" node("RHS", <multiplicativeExpression>)) |
-												node("MOD", node("LHS", <?>)		"%" node("RHS", <multiplicativeExpression>)) |
-												<?>
-											);
-
-<unaryExpression>						::= <prefixExpression> |
-											<unaryExpression2>;
-
-<unaryExpression2>						::= "~" <unaryExpression> |
-											"!" <unaryExpression> |
-											<castExpression> |
-											<postfixExpression>;
-
-<prefixExpression>						::= node("PRE_INCREMENT", "++" <unaryExpression>) |
-											node("PRE_DECREMENT", "--" <unaryExpression>) |
-											node("POSITIVE", "+" <unaryExpression>) |
-											node("NEGATIVE", "-" <unaryExpression>);
-
-<postfixExpression>						::= preProcess(<primary>,
-												node("POST_INCREMENT", <?> "++") |
-												node("POST_DECREMENT", <?> "--") |
-												<?>
-											);
-
-<castExpression>						::= node("CAST", "(" node("TYPE", <type> [<templateSpec>] [<arraySpec>]) ")" <unaryExpression2>) ["." <primary>] |
-											node("CAST", "(" node("TYPE", <expression>) ")" <unaryExpression2>) ["." <primary>];
-
-<primary>								::= <primaryNoNewArray> |
-											<arrayCreateExpression>;
-
-<primaryNoNewArray>						::= <literal> ["." <primary>] |
-											node("THIS_ACCESS", "this" ["(" [<arguments>] ")"]) ["." <primary>] |
-											node("SUPER_ACCESS", "super") "(" [<arguments>] ")" |
-											node("SUPER_ACCESS", "super") "." <primary> |
-											"(" <expression> ")" [<arrayAccess>] ["." <primary>] |
-											<classInstantiateExpression> |
-											<methodInvocation> |
-											<fieldAccess> |
-											<typeAccess> |
-											<classAccess>;
-
-<arrayCreateExpression>					::= node("INSTATIATE", "new" node("TYPE", <type> [<templateSpec>]) ("[" [<expression>] "]")+ [<fieldInitializer>]) ["." <primary>];
-
-<literal>								::= node("LITERAL", 
-												<numberLiteral> |
-												<stringLiteral>+ |
-												<characterLiteral>+ |
-												<booleanLiteral> |
-												<nullLiteral>
-											);
-
-<numberLiteral>							::= attribute("NUMBER", <NUMBER>);
-
-<stringLiteral>							::= "\"" attribute("STRING", <STRING_BODY>) "\"" ["+" <stringLiteral>];
-
-<characterLiteral>						::= "\'" attribute("CHAR", <CHAR_BODY>) "\'";
-
-<booleanLiteral>						::= attribute("BOOL", "true" | "false");
-
-<nullLiteral>							::= attribute("NULL", "null");
-
-<classInstantiateExpression>			::= node("INSTANTIATE", "new" node("TYPE", <type> [<templateSpec>]) "(" [<arguments>] ")" [node("BODY", <classBody>)]) ["." <primary>];
-
-<methodInvocation>						::= //node("METHOD_ACCESS", node("NAME", attribute("NAMEPART", "super") [attribute("NAMEPART", ".") <shortName>]) "(" [<arguments>] ")") ["." <primary>] |
-											//node("METHOD_ACCESS", node("NAME", attribute("NAMEPART", "proceed")) "(" [<arguments>] ")") ["." <primary>] | // This should be up with this and super..?
-											// If this proceed bit is actually real, it'll have to be put in a "non-keyword" rule so that it can be matched as an identified
-											// its used as an identifier in sample source..
-											node("METHOD_ACCESS", [<templateSpec>] node("NAME", <shortName>) "(" [<arguments>] ")") [<arrayAccess>] ["." <primary>];
-
-<fieldAccess>							::= node("VARIABLE_ACCESS", node("NAME", attribute("NAMEPART", "super") attribute("NAMEPART", ".") <shortName>)) [<arrayAccess>] ["." <primary>] |
-											node("VARIABLE_ACCESS", node("NAME", <shortName>)) [<arrayAccess>] ["." <primary>];
-
-<typeAccess>							::= <basicType> [<arrayAccess>] ["." <primary>];
-
-<classAccess>							::= "class" ["." <primary>];
-*/
