@@ -172,7 +172,9 @@ parse(<kotlinFile>, <languageEscape>);
 						":" attribute("TYPE", <type>)
 						["=" attribute("DEFAULT", <expression>)]);
 
-<delegationSpecifiers>	::= <constructorInvocation> |
+<delegationSpecifiers>	::= <annotatedDelegationSpecifier> ("," <annotatedDelegationSpecifier>)*;
+
+<delegationSpecifier>	::= <constructorInvocation> |
 							<explicitDelegation> |
 							<userType> |
 							<functionType>;
@@ -182,6 +184,14 @@ parse(<kotlinFile>, <languageEscape>);
 <annotatedDelegationSpecifier>	::= <annotation>* <delegationSpecifier>;
 
 <explicitDelegation>	::= (<userType> | <functionType>) "by" <expression>;
+
+
+////////////////////////////////////////////////////////
+// Syntax Grammar : Generic Constraints
+////////////////////////////////////////////////////////
+<typeParameters>	::= "<" <typeParameter> ("," <typeParameter>)* [","] ">";
+
+<typeParameter>		::= [<typeParameterModifiers>] <simpleIdentifier> [":" <type>];
 
 
 ////////////////////////////////////////////////////////
@@ -558,7 +568,11 @@ parse(<kotlinFile>, <languageEscape>);
 									node("IDENTIFIER", attribute("NAME", <simpleIdentifier>)) |
 									<parenthesizedDirectlyAssignableExpression>;
 
-<parenthesizedDirectlyAssignableExpression>	::= "(" <assignableExpression> ")";
+<parenthesizedDirectlyAssignableExpression>	::= "(" <directlyAssignableExpression> ")";
+
+<assignableExpression>	::= <prefixUnaryExpression> | <parenthesizedAssignableExpression>;
+
+<parenthesizedAssignableExpression>	::= "(" <assignableExpression> ")";
 
 <assignableSuffix>		::= <typeArguments> | <indexingSuffix> | <navigationSuffix>;
 
@@ -681,10 +695,7 @@ parse(<kotlinFile>, <languageEscape>);
 // Placeholders for rules not yet implemented
 ////////////////////////////////////////////////////////
 
-<assignableExpression> ::= fail();
-<delegationSpecifier> ::= fail();
 <semi> ::= fail();
 <semis> ::= fail();
-<typeParameters> ::= fail();
 
 
