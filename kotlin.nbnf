@@ -62,6 +62,7 @@ parse(<kotlinFile>, <languageEscape>);
 						);
 
 <NUMBER>			::= token(
+						<BOOLEAN_LITERAL> |
 						<HEX_FLOAT_NUMBER> |
 						<DEC_FLOAT_NUMBER> |
 						<HEX_NUMBER> ["l" | "L"] |
@@ -88,6 +89,8 @@ parse(<kotlinFile>, <languageEscape>);
 <OCT_NUMBER>		::= "0" "0".."7"+;
 
 <HEX_NUMBER>		::= "0" ("x" | "X") ("0".."9" | "a".."f" | "A".."F")+;
+
+<BOOLEAN_LITERAL>	::= "true" | "false";
 
 <STRING>			::= token("\"") token(<STRING_BODY>) token("\"") |
 						token("\'") token(<CHAR_BODY>) token("\'");
@@ -450,22 +453,225 @@ parse(<kotlinFile>, <languageEscape>);
 <identifier>	::= <simpleIdentifier> ("." <simpleIdentifier>)*;
 
 
+
+////////////////////////////////////////////////////////
+// Syntax Grammar : Identifiers
+////////////////////////////////////////////////////////
+
+<expression>		::= <disjunction>;
+<disjunction>		::= preProcess(<conjunction>,
+						node("DISJUNCTION", node("EXPRESSION", <?>) ("||" node("EXPRESSION", <conjunction>))+) |
+						<?>
+					);
+
+<conjunction>		::= preProcess(<equality>,
+						node("CONJUNCTION", node("EXPRESSION", <?>) ("&&" node("EXPRESSION", <equality>))+) |
+						<?>
+					);
+				
+<equality>			::= preProcess(<comparison>,
+						node("EQUALITY", node("EXPRESSION", <?>) (attribute("OPERATOR", <equalityOperator>) node("EXPRESSION", <comparison>))+) |
+						<?>
+					);
+				
+<comparison>		::= preProcess(<infixOperation>,
+						node("COMPARISON", node("EXPRESSION", <?>) attribute("OPERATOR", <comparisonOperator>) node("EXPRESSION", <infixOperation>)) |
+						<?>
+					);
+					
+<infixOperation>	::= preProcess(<elvisExpression>,
+						node("IN", node("EXPRESSION", <?>) attribute("OPERATOR", <inOperator>)  node("EXPRESSION", <elvisExpression>)) |
+						node("IS", node("EXPRESSION", <?>) attribute("OPERATOR", <isOperator>)  node("TYPE", <type>)) |
+						<?>
+					);
+
+<elvisExpression>	::= preProcess(<infixFunctionCall>,
+						node("ELVIS", node("EXPRESSION", <?>) (<elvis> node("EXPRESSION", <infixFunctionCall>))+) |
+						<?>
+					);
+
+<elvis>				::= "?" ":";
+
+<infixFunctionCall>	::= preProcess(<rangeExpression>,
+						node("INFIX_FUNCTION_CALL", node("EXPRESSION", <?>) (<simpleIdentifier> node("EXPRESSION", <rangeExpression>))+) |
+						<?>
+					);
+
+<rangeExpression>	::= preProcess(<additiveExpression>,
+						node("RANGE", node("EXPRESSION", <?>) (".." node("EXPRESSION", <additiveExpression>))+) |
+						<?>
+					);
+
+<additiveExpression>::= preProcess(<multiplicativeExpression>,
+						node("ADD", node("EXPRESSION", <?>) (attribute("OPERATOR", <additiveOperator>)  node("EXPRESSION", <multiplicativeExpression>))+) |
+						<?>
+					);
+					
+<multiplicativeExpression>::= preProcess(<asExpression>,
+						node("MULTIPLY", node("EXPRESSION", <?>) (attribute("OPERATOR", <multiplicativeOperator>)  node("EXPRESSION", <asExpression>))+) |
+						<?>
+					);
+					
+<asExpression>		::= preProcess(<comparisonWithLiteralRightSide>,
+						node("AS", node("EXPRESSION", <?>) attribute("OPERATOR", <asOperator>)  node("TYPE", <type>)) |
+						<?>
+					);
+					
+<comparisonWithLiteralRightSide>	::= preProcess(<prefixUnaryExpression>,
+						node("AS", node("EXPRESSION", <?>) ("<" attribute("LITERAL", <literalConstant>) ">"  node("EXPRESSION", (<parenthesizedExpression>|<expression>)))+) |
+						<?>
+					);
+
+<prefixUnaryExpression>	::= node("PREFIX", <unaryPrefix>+ node("EXPRESSION", <postfixUnaryExpression>)) |
+							<postfixUnaryExpression>;
+
+<unaryPrefix>			::= <annotation> | <label> | <prefixUnaryOperator>;
+
+<postfixUnaryExpression>::= preProcess(<primaryExpression>,
+							node("POSTFIX", node("EXPRESSION", <?>) <postfixUnarySuffix>+) |
+							<?>
+						);
+
+<postfixUnarySuffix>	::= <postfixUnaryOperator> |
+							<typeArguments> |
+							<callSuffix> |
+							<indexingSuffix> |
+							<navigationSuffix>;
+
+<directlyAssignableExpression>	::= <postFixUnaryExpression> <assignableSuffix> |
+									node("IDENTIFIER", attribute("NAME", <simpleIdentifier>)) |
+									<parenthesizedDirectlyAssignableExpression>;
+
+<parenthesizedDirectlyAssignableExpression>	::= "(" <assignableExpression> ")";
+
+<assignableSuffix>		::= <typeArguments> | <indexingSuffix> | <navigationSuffix>;
+
+<indexingSuffix>		::= "[" <expression> ("," <expression>)* [","] "]";
+
+<navigationSuffix>		::= <memberAccessOperator> (<simpleIdentifier> | <parenthesizedExpression> | "class");
+
+<callSuffix>			::= [<typeArguments>] [<valueArguments>] <annotatedLambda> |
+							[<typeArguments>] <valueArguments>;
+
+<annotatedLambda>		::= (<annotation>)* [<label>] <lambdaLiteral>;
+
+<typeArguments>			::= "<" <typeProjection> ("," <typeProjection>)* [","] ">";
+
+<valueArguments>		::= "(" ")" |
+						"(" <valueArgument> ("," <valueArgument>)* [","] ")";
+
+<valueArgument>			::= [<annotation>] [<simpleIdentifier> "="] ["*"] <expression>;
+
+<primaryExpression>		::= <parenthesizedExpression> | 
+							<simpleIdentifier> |
+							<literalConstant> |
+							<stringLiteral> |
+							<callableReference> |
+							<functionLiteral> |
+							<objectLiteral> |
+							<collectionLiteral> |
+							<thisExpression> |
+							<superExpression> |
+							<ifExpression> |
+							<whenExpression> |
+							<tryExpression> |
+							<jumpExpression>;
+							
+<parenthesizedExpression>	::= "(" <expression> ")";
+
+<collectionLiteral>		::= "[" <expression> ("," <expression>)* [","] "]";
+
+<literalConstant>		::= <BOOLEAN_LITERAL> |
+							<NUMBER> |
+							"null";
+
+<stringLiteral>			::= <STRING>;
+
+<lambdaLiteral>			::= "{" [[<lambdaParameters>] "->"] <statements> "}";
+
+<lambdaParameters>		::= <lambdaParameter> ("," <lambdaParameter>)* [","];
+
+<lambdaParameter>		::= <variableDeclaration> | <multiVariableDeclaration> [":" <type>];
+
+<anonymousFunction>		::= "fun" [<type> "."] <parametersWithOptionalType>
+							[":" <type>] [<typeConstraints>]
+							[<functionBody>];
+
+<functionLiteral>		::= <lambdaLiteral> | <anonymousFunction>;
+
+<objectLiteral>			::= "object" [":" <delegationSpecifiers>] <classBody>;
+
+<thisExpression>		::= "this";
+
+<superExpression>		::= "super";
+
+<ifExpression>			::= "if" "(" <expression> ")" (<controlStructureBody> | ";") |
+							"if" "(" <expression> ")" [<controlStructureBody>] [";"] "else" (<controlStructureBody> | ";");
+
+<whenSubject>			::= "(" [(<annotation>)* "val" <variableDeclaration> "="] <expression> ")";
+
+<whenExpression>		::= "when" [<whenSubject>] "{" <whenEntry>* "}";
+
+<whenEntry>				::= <whenCondition> ("," <whenCondition>)* [","] "->" <controlStructureBody> [<semi>] |
+							"else" "->" <controlStructureBody> [<semi>];
+
+<whenCondition>			::= <expression> | <rangeTest> | <typeTest>;
+
+<rangeTest>				::= <inOperator> <expression>;
+
+<typeTest>				::= <isOperator> <type>;
+
+<tryExpression>			::= "try" <block> (<catchBlock>+ [<finallyBlock>]|<finallyBlock>);
+
+<catchBlock>			::= "catch" "(" <annotation>* <simpleIdentifier> ":" <type> [","] <block>;
+
+<finallyBlock>			::= "finally" <block>;
+
+<jumpExpression>		::= "throw" <expression> |
+							"return" <expression> |
+							"continue" |
+							"break";
+
+<callableReference>		::= [<receiverType>] "::" (<simpleIdentifier> | "class");
+
+<assignmentAndOperator>	::= "+=" | "-=" | "*=" | "/=" | "%=";
+
+<equalityOperator>		::= "!==" | "!=" | "===" | "==";
+
+<comparisonOperator>	::= "<=" | ">=" | "<" | ">";
+
+<inOperator>			::= "in" | "!in";
+
+<isOperator>			::= "is" | "!is";
+
+<additiveOperator>		::= "+" | "-";
+
+<multiplicativeOperator>::= "*" | "/" | "%";
+
+<asOperator>			::= "as" | "as?";
+
+<prefixUnaryOperator>	::= "++" | "--" | "+" | "-" | <excl>;
+
+<postfixUnaryOperator>	::= "++" | "--" | "!" <excl>;
+
+<excl>					::= "!";
+
+<memberAccessOperator>	::= "." | <safeNav> | "::";
+
+<safeNav>				::= "?" ".";
+
+
 ////////////////////////////////////////////////////////
 // Placeholders for rules not yet implemented
 ////////////////////////////////////////////////////////
 
 <annotation> ::= fail();
 <assignableExpression> ::= fail();
-<assignmentAndOperator> ::= fail();
 <delegationSpecifier> ::= fail();
-<directlyAssignableExpression> ::= fail();
-<expression> ::= fail();
 <semi> ::= fail();
 <semis> ::= fail();
-<typeArguments> ::= fail();
 <typeParameters> ::= fail();
 <unescapedAnnotation> ::= fail();
-<valueArguments> ::= fail();
 
 
 
@@ -475,262 +681,6 @@ parse(<kotlinFile>, <languageEscape>);
 // ***
 
 /*
-// Rule for identifiers, allowing for AspectJ keywords
-<innerName>								::= <IDENTIFIER> |
-											<nonKeyword>;
-
-// This nonKeyword rule exists because not all keywords can't be used as identifiers.  Don't blame the player, man!
-// This list of nonKeyword keywords may well need to be expanded over time.
-// So far, the only examples have been fringe cases where java.util.Enumerator object is called "enum"
-// So far, only Apache coders are this .. creative
-<nonKeyword>							::= "enum";
-
-// Generic name rule
-<name>									::= attribute("NAMEPART", <innerName>) (attribute("NAMEPART", ".") attribute("NAMEPART", <innerName>))*;
-
-<shortName>								::= attribute("NAMEPART", <innerName>);
-
-// Generic type rule
-<type>									::= <basicType> |
-											<name>;
-
-<basicType>								::= attribute("NAMEPART", 
-												"boolean" |
-												"byte" |
-												"char" |
-												"double" |
-												"float" |
-												"int" |
-												"long" |
-												"short" |
-												"void"
-											);
-
-// Generic modifier rule
-<modifier>								::= <scopeModifier> |
-											<otherModifier> |
-											<annotation>;
-
-<scopeModifier>							::= attribute("SCOPE", 
-												"public" |
-												"protected" |
-												"private"
-											);
-
-<otherModifier>							::= attribute("MODIFIER", 
-												"static" |
-												"abstract" |
-												"final" |
-												"native" |
-												"synchronized" |
-												"transient" |
-												"volatile" |
-												"strictfp"
-											);
-
-// Annotations
-<annotation>							::= <normalAnnotation> |
-											<singleElementAnnotation> |
-											<markerAnnotation>;
-
-<normalAnnotation>						::= "@" <name> "(" <elementValuePairList> ")";
-
-<singleElementAnnotation>				::= "@" <name> "(" <elementValue> ")";
-
-<markerAnnotation>						::= "@" <name>;
-
-<elementValuePairList>					::= <elementValuePair> ("," <elementValuePair>)*;
-
-<elementValuePair>						::= <name> "=" <elementValue>;
-
-<elementValue>							::= <conditionalExpression> |
-											<annotation> |
-											<elementValueArrayInitializer>;
-
-<elementValueArrayInitializer>			::= "{" [<elementValueList>] "}";
-
-<elementValueList>						::= <elementValue> ("," <elementValue>)*;
-
-// Generic array rules
-<arraySpec>								::= node("ARRAY", "[" "]")+;
-
-<arrayAccess>							::= node("ARRAY_ACCESS", ("[" [<expression>] "]")+);
-
-// Generic parameters rule
-<parameters>							::= <parameter> ("," <parameter>)*;
-
-<parameter>								::= node("PARAMETER", <modifier>* node("TYPE", <type> [<templateSpec>]) [<arraySpec>] ["..."] node("NAME", <shortName>) [<arraySpec>]);
-
-// Generic arguments rule
-<arguments>								::= node("ARGUMENT", <fieldInitializer>) ("," node("ARGUMENT", <fieldInitializer>))*;
-
-// Language root
-<language>								::= <compilationUnit>+;
-
-<languageEscape>						::= attribute("COMMENT", <COMMENT>) |
-											node("NEWLINE", "\n");
-
-<compilationUnit>						::= <packageDeclaration> |
-											<importDeclaration> |
-											<typeDeclaration> |
-											<annotationDeclaration>;
-
-<packageDeclaration>					::= node("PACKAGE", <annotation>* "package" node("NAME", <name>) ";");
-
-<importDeclaration>						::= node("IMPORT", <annotation>* "import" [attribute("MODIFIER", "static")] node("NAME", <name> [<importNameWild>]) ";");
-
-<importNameWild>						::= attribute("NAMEPART", ".") attribute("NAMEPART", "*");
-
-<typeDeclaration>						::= <classDeclaration> |
-											<interfaceDeclaration> |
-											<enumDeclaration> |
-											";";
-
-// Class declaration
-<classDeclaration>						::= node("CLASS", <annotation>* <modifier>* "class" node("NAME", <shortName> [<templateDecl>]) [<super>] [<interfaces>] <classBody> [";"]);
-
-<super>									::= node("PARENT", "extends" node("TYPE", <type> [<templateSpec>]) ("," node("NAME", <type> [<templateSpec>]))*);
-
-<interfaces>							::= node("IMPLEMENTS", "implements" node("TYPE", <type> [<templateSpec>]) ("," node("NAME", <type> [<templateSpec>]))*);
-
-<classBody>								::= node("BODY", "{" <classBodyDeclaration>* "}");
-
-<classBodyDeclaration>					::= <classMemberDeclaration> |
-											<staticInitializer> |
-											<constructorDeclaration>;
-
-<classMemberDeclaration>				::= <methodDeclaration> |
-											<fieldDeclaration> |
-											<typeDeclaration> |
-											<annotationDeclaration> |
-											<statementBlock> |
-											";";
-
-<staticInitializer>						::= node("STATIC", "static" node("BODY", <statementBlock>));
-
-<constructorDeclaration>				::= node("METHOD", <annotation>* <modifier>* [<templateSpec>] node("NAME", <shortName>) "(" [<parameters>] ")" [<throws>] <methodBody> [";"]);
-
-// Interface declaration
-<interfaceDeclaration>					::= node("INTERFACE", <annotation>* <modifier>* "interface" node("NAME", <shortName>) [<templateSpec>] [<super>] [<interfaces>] <interfaceBody> [";"]);
-
-<interfaceBody>							::= node("BODY", "{" <classMemberDeclaration>* "}");
-
-// Enum declaration
-<enumDeclaration>						::= node("ENUM", <annotation>* <modifier>* "enum" node("NAME", <shortName>) [<templateSpec>] [<interfaces>] <enumBody> [";"]);
-
-<enumBody>								::= node("BODY", "{" [<enumFields>] [";"] [<enumMembers>] "}");
-
-<enumFields>							::= node("FIELD", <enumField>) ("," node("FIELD", <enumField>))* [","];
-
-<enumField>								::= node("FIELD", node("NAME", <shortName>) ["(" <arguments> ")"] [<enumBody>] ["=" node("DEFAULT", <expression>)]);
-
-<enumMembers>							::= <classBodyDeclaration>*;
-
-// Field declaration
-<fieldDeclaration>						::= node("FIELD", <annotation>* <modifier>* node("TYPE", <type>) [<templateSpec>] [<arraySpec>] <fieldDeclarator> ("," <fieldDeclarator>)* ";");
-
-<fieldDeclarator>						::= node("NAME", <shortName>) [<arraySpec>] ["=" node("DEFAULT", <fieldInitializer>)];
-
-<fieldInitializer>						::= node("DIMENSION", "{" [<fieldInitializer> ("," <fieldInitializer>)*] [","] "}") [<arrayAccess>] |
-											<expression>;
-
-// Method declaration
-<methodDeclaration>						::= node("METHOD", <annotation>* <modifier>* [<templateDecl>] node("TYPE", <type>) [<templateSpec>] [<arraySpec>] node("NAME", <shortName>) "(" [<parameters>] ")" [<arraySpec>] [<throws>] <methodBody>);
-
-<methodBody>							::= node("BODY", <statementBlock>) |
-											"default" (<expression> | "{" [<expression>] "}") ";" |
-											";";
-
-<throws>								::= node("THROWS", "throws" node("TYPE", <type> [<templateSpec>]) ("," node("TYPE", <type> [<templateSpec>]))*);
-
-// Template specifications
-
-// split this into args and params
-// when its used in a decl (class decl) use params
-// when its used in an impl (new) use args
-// TEMPLATE should always be a child of NAME!
-<templateDecl>							::= node("TEMPLATE_DECL", "<" [<templateArg> ("," <templateArg>)*] ">");
-
-<templateSpec>							::= node("TEMPLATE", "<" [<templateArg> ("," <templateArg>)*] ">");
-
-<templateArg>							::= node("ARGUMENT", node("TYPE", attribute("NAMEPART", "?")) [<templateBound>]) |
-											node("ARGUMENT", node("TYPE", <shortName>) <templateBound>) |
-											node("ARGUMENT", node("TYPE", <type> [<templateSpec>]) ("[" "]")*);
-
-<templateBound>							::= node("PARENT", "extends" node("NAME", <type> [<templateSpec>] [<arraySpec>]) ("&" node("NAME", <type> [<templateSpec>] [<arraySpec>]))*) |
-											node("PARENT", "super" node("NAME", <type> [<templateSpec>] [<arraySpec>]));
-
-<annotationDeclaration>					::= node("ANNOTATION", <annotation>* <modifier>* "@interface" <shortName> <interfaceBody>);
-
-// Statements
-<statementBlock>						::= "{" <blockStatement>* "}";
-
-<blockStatement>						::= <fieldDeclaration> |
-											<statement>;
-
-<statement>								::= <statementBlock> |
-											<assertStatement> |
-											<switchStatement> |
-											<doStatement> |
-											<breakStatement> |
-											<continueStatement> |
-											<returnStatement> |
-											<synchronizedStatement> |
-											<throwStatement> |
-											<tryStatement> |
-											<labeledStatement> |
-											<ifStatement> |
-											<whileStatement> |
-											<forStatement> |
-											<forEach> |
-											<classDeclaration> |
-											node("EXPRESSION", <expressionStatement>) |
-											node("NOOP", ";");
-
-<expressionStatement>					::= <assignment> ";" |
-											<unaryExpression> ";";
-
-<assertStatement>						::= node("ASSERT", "assert" <expression> [":" <expression>] ";");
-
-<switchStatement>						::= node("SWITCH", "switch" "(" node("CONDITION", <expression>) ")" "{" node("CASE", <switchCase>)* "}");
-
-<switchCase>							::= node("CASE", "case" <expression> ":" node("BODY", <blockStatement>*)) |
-											node("CASE", "default" ":" node("BODY", <blockStatement>*));
-
-<doStatement>							::= node("DO", "do" node("BODY", <statement>) "while" "(" node("CONDITION", <expression>) ")" ";");
-
-<breakStatement>						::= node("BREAK", "break" [attribute("LABEL", <shortName>)] ";");
-
-<continueStatement>						::= node("CONTINUE", "continue" [attribute("LABEL", <shortName>)] ";");
-
-<returnStatement>						::= node("RETURN", "return" [<expression>] ";");
-
-<synchronizedStatement>					::= node("SYNCHRONIZED", "synchronized" "(" <expression> ")" node("BODY", <statement>));
-
-<throwStatement>						::= node("THROW", "throw" <expression> ";");
-
-// **FIX: Stupid Java..  Can have "try" "(" <declaration> ")"
-<tryStatement>							::= node("TRY", "try" [<tryResourceList>] node("BODY", <statement>) node("CATCH", "catch" "(" node("PARAMETER", <catchParameter>) ")" node("BODY", <statement>))* [node("FINALLY", "finally" node("BODY", <statement>))]);
-
-<tryResourceList>						::= "(" <tryResource> (";" <tryResource>)* ")";
-
-<tryResource>							::= node("FIELD", <annotation>* <modifier>* node("TYPE", <type>) [<templateSpec>] [<arraySpec>] <fieldDeclarator> ("," <fieldDeclarator>)*);
-
-<catchParameter>						::= node("PARAMETER", <modifier>* node("TYPE", <type>) ("|" node("TYPE", <type>))* node("NAME", <shortName>));
-
-<labeledStatement>						::= node("LABELED", node("NAME", <shortName>) ":" node("BODY", <statement>));
-
-<ifStatement>							::= node("IF", "if" "(" node("CONDITION", <expression>) ")" node("BODY", <statement>) [node("ELSE", "else" node("BODY", <statement>))]);
-
-<whileStatement>						::= node("WHILE", "while" "(" node("CONDITION", <expression>) ")" node("BODY", <statement>));
-
-<forStatement>							::= node("FOR", "for" "(" node("INIT", <forInit> | ";") [node("CONDITION", <expression>)] ";" [node("ACTION", <expression> ("," <expression>)*)] ")" node("BODY", <statement>));
-
-<forInit>								::= <fieldDeclaration> | 
-											<expression> ("," <expression>)* ";";
-
-<forEach>								::= node("FOR_EACH", "for" "(" <parameter> ":" <expression> ")" <statement>);
-
 // Expressions
 <expression>							::= <assignmentExpression>;
 
@@ -767,16 +717,6 @@ parse(<kotlinFile>, <languageEscape>);
 
 <conditionalExpression>					::= preProcess(<logicalOrExpression>, 
 												node("CONDITIONAL", node("CONDITION", <?>) "?" node("TRUE", <assignmentExpression>) ":" node("FALSE", <assignmentExpression>)) |
-												<?>
-											);
-
-<logicalOrExpression>					::= preProcess(<logicalAndExpression>,
-												node("LOGICAL_OR", node("LHS", <?>)		"||" node("RHS", <logicalOrExpression>)) |
-												<?>
-											);
-
-<logicalAndExpression>					::= preProcess(<bitwiseOrExpression>,
-												node("LOGICAL_AND", node("LHS", <?>)	"&&" node("RHS" , <logicalAndExpression>)) |
 												<?>
 											);
 
