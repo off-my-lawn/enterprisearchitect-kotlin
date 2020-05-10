@@ -42,6 +42,7 @@ parse(<kotlinFile>, <languageEscape>);
 						"?"  | "|"  | ".";
 
 <TOKENS>			::= <WHITESPACE>+ |
+						<NL> |
 						<SHEBANG_LINE> |
 						<COMMENT> |
 						<NUMBER> |
@@ -52,11 +53,12 @@ parse(<kotlinFile>, <languageEscape>);
 						);
 
 <WHITESPACE>		::= " " | "\r" | "\n" | "\t";
+<NL>				::= token("\r\n" | "\n");
 
-<SHEBANG_LINE>		::= token( "#!" skip("\n") );
+<SHEBANG_LINE>		::= token( "#!" skip(<NL>) <NL>);
 
 <COMMENT>			::= token(
-							"//" skip("\n") |
+							"//" skip(<NL>) |
 							"//" [skipEof()] |
 							"/*" skip("*/") "*/"
 						);
@@ -109,17 +111,17 @@ parse(<kotlinFile>, <languageEscape>);
 
 // For Enterprise Architect to see the remainder of this file as belonging to
 // the defined package we need to have the contents inside the package node.
-<kotlinFile>		::= [<shebangLine>] <fileAnnotation>* <package>;
-<package>			::= node("PACKAGE", <packageHeader> <importList> <topLevelObject>*);
+<kotlinFile>		::= [<shebangLine>] <NL>* <fileAnnotation>* <package>;
+<package>			::= node("PACKAGE", <packageHeader> <importList> <topLevelObject>*) <NL>*;
 
 // Alternate top level entry.
-<script>			::= [<shebangLine>] <fileAnnotation>* <scriptPackage>;
-<scriptPackage>			::= node("PACKAGE", <packageHeader> <importList> (<statement> <semi>)*);
+<script>			::= [<shebangLine>] <NL>* <fileAnnotation>* <scriptPackage>;
+<scriptPackage>			::= node("PACKAGE", <packageHeader> <importList> (<statement> <semi>)*) <NL>*;
 
 <shebangLine>		::= <SHEBANG_LINE>;
 
 // Left out AT_PRE_WS. Not sure if it has any application in this usage.
-<fileAnnotation>	::= "@" "file" ":" ("[" <unescapedAnnotation> "]" | <unescapedAnnotation>);
+<fileAnnotation>	::= "@" "file" <NL>* ":" <NL>* ("[" <unescapedAnnotation>+ "]" | <unescapedAnnotation>) <NL>*;
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Packages
@@ -133,11 +135,11 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 <importList>		::= <importHeader>*;
 
-<importHeader>		::= node("IMPORT", "import" <identifier> ["." "*" | <importAlias>]);
+<importHeader>		::= node("IMPORT", "import" <identifier> ["." "*" | <importAlias>]) [<semi>];
 
 <importAlias>		::= "as" <simpleIdentifier>;
 
-<topLevelObject>	::= <declaration> <semis>;
+<topLevelObject>	::= <declaration> [<semis>];
 
 <typeAlias>			::= [<modifiers>] "typealias" <simpleIdentifier> [<typeParameters>] "=" <type>;
 
@@ -153,26 +155,26 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 
 // Will require node("CLASS",...) and node("INTERFACE",...) to import
-<classDeclaration>	::= [<modifiers>] ("class" | ["fun"] "interface")
-						<simpleIdentifier> [<typeParameters>]
+<classDeclaration>	::= [<modifiers>] ("class" | ["fun" <NL>*] "interface") <NL>*
+						<simpleIdentifier> [<NL>* <typeParameters>]
 						[<primaryConstructor>]
-						[":" <delegationSpecifiers>]
-						[<typeConstraints>]
-						[<classBody> | <enumClassBody>];
+						[<NL>* ":" <NL>* <delegationSpecifiers>]
+						[<NL>* <typeConstraints>]
+						[<NL>* <classBody> | <NL>* <enumClassBody>];
 
-<primaryConstructor>::= [[<modifiers>] "constructor"] <classParameters>;
+<primaryConstructor>::= [[<modifiers>] "constructor" <NL>*] <classParameters>;
 
 // OPEN_POSITION and INSERT_POSITION are Enterprise Architect constructs to help insert new class members.
-<classBody>			::= node("BODY", "{" attributeEx("OPEN_POSITION") <classMemberDeclarations> attributeEx("INSERT_POSITION") "}" );
+<classBody>			::= node("BODY", "{" attributeEx("OPEN_POSITION") <NL>* <classMemberDeclarations> attributeEx("INSERT_POSITION") <NL>* "}" );
 
-<classParameters>	::= "(" [<classParameter> ("," <classParameter>)* [","]] ")";
+<classParameters>	::= "(" <NL>* [<classParameter> (<NL>* "," <NL>* <classParameter>)* [<NL>* ","]] <NL>* ")";
 
 <classParameter>	::= node("PARAMETER", [<modifiers>]
-						["val" | "var"] attribute("NAME", <simpleIdentifier>)
-						":" attribute("TYPE", <type>)
-						["=" attribute("DEFAULT", <expression>)]);
+						["val" | "var"] <NL>* attribute("NAME", <simpleIdentifier>)
+						":" <NL>* attribute("TYPE", <type>)
+						[<NL>* "=" <NL>* attribute("DEFAULT", <expression>)]);
 
-<delegationSpecifiers>	::= <annotatedDelegationSpecifier> ("," <annotatedDelegationSpecifier>)*;
+<delegationSpecifiers>	::= <annotatedDelegationSpecifier> (<NL>* "," <NL>* <annotatedDelegationSpecifier>)*;
 
 <delegationSpecifier>	::= <constructorInvocation> |
 							<explicitDelegation> |
@@ -181,25 +183,25 @@ parse(<kotlinFile>, <languageEscape>);
 
 <constructorInvocation> ::= <userType> <valueArguments>;
 
-<annotatedDelegationSpecifier>	::= <annotation>* <delegationSpecifier>;
+<annotatedDelegationSpecifier>	::= <annotation>* <NL>* <delegationSpecifier>;
 
-<explicitDelegation>	::= (<userType> | <functionType>) "by" <expression>;
+<explicitDelegation>	::= (<userType> | <functionType>) <NL>* "by" <NL>* <expression>;
 
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Generic Constraints
 ////////////////////////////////////////////////////////
-<typeParameters>	::= "<" <typeParameter> ("," <typeParameter>)* [","] ">";
+<typeParameters>	::= "<" <NL>* <typeParameter> (<NL>* "," <NL>* <typeParameter>)* [<NL>* ","] <NL>* ">";
 
-<typeParameter>		::= [<typeParameterModifiers>] <simpleIdentifier> [":" <type>];
+<typeParameter>		::= [<typeParameterModifiers>] <NL>* <simpleIdentifier> [<NL>* ":" <NL>* <type>];
 
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Generic Classes
 ////////////////////////////////////////////////////////
-<typeConstraints>		::= "where" <typeConstraint> ("," <typeConstraint>)*;
+<typeConstraints>		::= "where" <NL>* <typeConstraint> (<NL>* "," <NL>* <typeConstraint>)*;
 
-<typeConstraint>		::= <annotation>* <simpleIdentifier> ":" <type>;
+<typeConstraint>		::= <annotation>* <simpleIdentifier> <NL>* ":" <NL>* <type>;
 
 
 
@@ -214,79 +216,79 @@ parse(<kotlinFile>, <languageEscape>);
 								<anonymousInitializer> |
 								<secondaryConstructor>;
 
-<anonymousInitializer>		::= "init" <block>;
+<anonymousInitializer>		::= "init" <NL>* <block>;
 
-<companionObject>			::= [<modifiers>] "companion" "object" [<simpleIdentifier>]
-								[":" <delegationSpecifiers>]
-								[<classBody>];
+<companionObject>			::= [<modifiers>] "companion" <NL>* "object" [<NL>* <simpleIdentifier>]
+								[<NL>* ":" <NL>* <delegationSpecifiers>]
+								[<NL>* <classBody>];
 
-<functionValueParameters>	::= "(" [<functionValueParameter> ("," <functionValueParameter>) [","]] ")";
+<functionValueParameters>	::= "(" <NL>* [<functionValueParameter> (<NL>* "," <NL>* <functionValueParameter>) [<NL>* ","]] <NL>* ")";
 
-<functionValueParameter>	::= [<parameterModifiers>] <parameter> "=" <expression>;
+<functionValueParameter>	::= [<parameterModifiers>] <parameter> <NL>* "=" <NL>* <expression>;
 
-<functionDeclaration>		::= [<modifiers>] "fun" [<typeParameters>]
-								[<receiverType> "."]
-								<simpleIdentifier> <functionValueParameters>
-								[":" <type>] [<typeConstraints>]
-								[<functionBody>];
+<functionDeclaration>		::= [<modifiers>] "fun" [<NL>* <typeParameters>]
+								[<NL>* <receiverType> <NL>* "."]
+								<NL>* <simpleIdentifier> <NL>* <functionValueParameters>
+								[<NL>* ":" <NL>* <type>] [<NL>* <typeConstraints>]
+								[<NL>* <functionBody>];
 
-<functionBody>				::= "=" <expression>;
+<functionBody>				::= "=" <NL>* <expression>;
 
-<variableDeclaration>		::= node("DECLARATOR", <annotation>* attribute("NAME", <simpleIdentifier>)
-								[":" attribute("TYPE", <type>)]);
+<variableDeclaration>		::= node("DECLARATOR", <annotation>* <NL>* attribute("NAME", <simpleIdentifier>)
+								[<NL>* ":" <NL>* attribute("TYPE", <type>)]);
 
-<multiVariableDeclaration>	::= "(" [<variableDeclaration> ("," <variableDeclaration>)* [","]] ")";
+<multiVariableDeclaration>	::= "(" <NL>* [<variableDeclaration> (<NL>* "," <NL>* <variableDeclaration>)* [<NL>* ","]] <NL>* ")";
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Properties and Fields
 ////////////////////////////////////////////////////////
 
-<propertyDeclaration>	::= node("FIELD", [<modifiers>] ("val" | "var") [<typeParameters>]
-							[<receiverType> "."]
-							(<multiVariableDeclaration> | <variableDeclaration>)
-							[<typeConstraints>]
-							["=" attribute("DEFAULT", <expression>) | <propertyDelegate>] [";"]
-							[<getter> [[<semi>] <setter>] | <setter> [[<semi>] <getter>]]
+<propertyDeclaration>	::= node("FIELD", [<modifiers>] ("val" | "var") [<NL>* <typeParameters>]
+							[<NL>* <receiverType> "."]
+							<NL>* (<multiVariableDeclaration> | <variableDeclaration>)
+							[<NL>* <typeConstraints>]
+							[<NL>* "=" <NL>* attribute("DEFAULT", <expression> | <propertyDelegate>)] [<NL>* ";"]
+							<NL>* [<getter> [<NL>* [<semi>] <setter>] | <setter> [<NL>* [<semi>] <getter>]]
 							);
 
-<propertyDelegate>		::= "by" <expression>;
+<propertyDelegate>		::= "by" <NL>* <expression>;
 
-<getter>				::= [<modifiers>] "get" ["(" ")" [":" <type>] <functionBody>];
+<getter>				::= [<modifiers>] "get" [<NL>* "(" <NL>* ")" [<NL>* ":" <NL>* <type>] <NL>* <functionBody>];
 
-<setter>				::= [<modifiers>] "set" ["(" <parameterWithOptionaltype> [","] ")" [":" <type>] <functionBody>];
+<setter>				::= [<modifiers>] "set" [<NL>* "(" <NL>* <parameterWithOptionaltype> [<NL>* ","] <NL>* ")" [<NL>* ":" <NL>* <type>] <NL>* <functionBody>];
 
-<parametersWithOptionalType>	::= "(" [<parameterWithOptionalType> ("," <parameterWithOptionalType>)* [","]] ")";
+<parametersWithOptionalType>::= "(" <NL>* [<parameterWithOptionalType> (<NL>* "," <NL>* <parameterWithOptionalType>)* [<NL>* ","]] <NL>* ")";
 
 <parameterWithOptionalType>	::= node("PARAMETER", [<parameterModifiers>] attribute("NAME", <simpleIdentifier>)
-								[":" attribute("TYPE", <type>)]);
+								<NL>* [":" <NL>* attribute("TYPE", <type>)]);
 								
-<parameter>	::= node("PARAMETER", [<parameterModifiers>] attribute("NAME", <simpleIdentifier>)
-								":" attribute("TYPE", <type>));
+<parameter>					::= node("PARAMETER", [<parameterModifiers>] attribute("NAME", <simpleIdentifier>)
+								<NL>* ":" <NL>* attribute("TYPE", <type>));
 
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Object expressions and Declarations
 ////////////////////////////////////////////////////////
-<objectDeclaration>	::= [<modifiers>] "object" <simpleIdentifier>
-						[":" <delegationSpecifiers>]
-						[<classBody>];
+<objectDeclaration>	::= [<modifiers>] "object" <NL>* <simpleIdentifier>
+						[<NL>* ":" <NL>* <delegationSpecifiers>]
+						[<NL>* <classBody>];
 
-<secondaryConstructor>	::= [<modifiers>] "constructor" <functionValueParameters>
-							[":" <constructorDelegationCall>] <block>;
+<secondaryConstructor>	::= [<modifiers>] "constructor" <NL>* <functionValueParameters>
+							[<NL>* ":" <NL>* <constructorDelegationCall>] <NL>* <block>;
 
-<constructorDelegationCall>	::= "this" <valueArguments> |
-								"super" <valueArguments>;
+<constructorDelegationCall>	::= "this" <NL>* <valueArguments> |
+								"super" <NL>* <valueArguments>;
 
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Enum Classes
 ////////////////////////////////////////////////////////
 
-<enumClassBody>	::= "{" [<enumEntries>] [";" <classMemberDeclarations>] "}";
+<enumClassBody>	::= "{" <NL>* [<enumEntries>] [<NL>* ";" <NL>* <classMemberDeclarations>] <NL>* "}";
 
-<enumEntries>	::= <enumEntry> ["," <enumEntry>]* [","];
+<enumEntries>	::= <enumEntry> [<NL>* "," <NL>* <enumEntry>]* [<NL>* ","];
 
-<enumEntry>		::= [<modifiers>] <simpleIdentifier> [<valueArguments>] [<classBody>];
+<enumEntry>		::= [<modifiers> <NL>*] <simpleIdentifier> [<NL>* <valueArguments>] [<NL>* <classBody>];
 
 
 
@@ -298,30 +300,30 @@ parse(<kotlinFile>, <languageEscape>);
 
 <typeReference>	::= <userType> | "dynamic";
 
-<nullableType>	::= (<typeReference> | <parenthesizedType>) <quest>+;
+<nullableType>	::= (<typeReference> | <parenthesizedType>) <NL>* <quest>+;
 
 // Skipped QUEST_WS
 <quest>						::= "?";
 
-<userType>					::= <simpleUserType> ("." <simpleUserType>)*;
+<userType>					::= <simpleUserType> (<NL>* "." <NL>* <simpleUserType>)*;
 
-<simpleUserType>			::= <simpleIdentifier> [<typeArguments>];
+<simpleUserType>			::= <simpleIdentifier> [<NL>* <typeArguments>];
 
-<typeProjection>			::= [<typeProjectionModifiers>] <type>;
+<typeProjection>			::= [<typeProjectionModifiers>] <type> | "*";
 
 <typeProjectionModifiers>	::= <typeProjectionModifier>+;
 
-<typeProjectionModifier>	::= <varianceModifier> | <annotation>;
+<typeProjectionModifier>	::= <varianceModifier> <NL>* | <annotation>;
 
-<functionType>				::= [<receiverType> "."] <functionTypeParameters> "->" <type>;
+<functionType>				::= [<receiverType> <NL>* "." <NL>*] <functionTypeParameters> <NL>* "->" <NL>* <type>;
 
-<functionTypeParameters>	::= "(" (<parameter>|<type>) ("," (<parameter>|<type>))* [","] ")";
+<functionTypeParameters>	::= "(" <NL>* (<parameter>|<type>) (<NL>* "," <NL>* (<parameter>|<type>))* [<NL>* ","] <NL>* ")";
 
-<parenthesizedType>			::= "(" <type> ")";
+<parenthesizedType>			::= "(" <NL>* <type> <NL>* ")";
 
 <receiverType>				::= [<typeModifiers>] (<parenthesizedType> | <nullableType> | <typeReference>);
 
-<parenthesizedUserType>		::= "(" (<userType>|<parenthesizedUserType>) ")";
+<parenthesizedUserType>		::= "(" <NL>* (<userType>|<parenthesizedUserType>) <NL>* ")";
 
 
 ////////////////////////////////////////////////////////
@@ -338,7 +340,8 @@ parse(<kotlinFile>, <languageEscape>);
 // Syntax Grammar : Returns and jumps
 ////////////////////////////////////////////////////////
 
-<label>					::= <simpleIdentifier> "@";
+<label>					::= <simpleIdentifier> "@" <NL>*;
+
 <controlStructureBody>	::= <block> | <statement>;
 
 <block>					::= "{" <statements> "}";
@@ -346,20 +349,243 @@ parse(<kotlinFile>, <languageEscape>);
 <loopStatement>			::= <forStatement> | <whileStatement> | <doWhileStatement>;
 
 <forStatement>			::= "for"
-							"("
+							<NL>* "("
 							<annotation>*
 							(<variableDeclaration> | <multiVariableDeclaration>)
 							"in"
 							<expression>
 							")"
-							[<controlStructureBody>];
+							<NL>* [<controlStructureBody>];
 
-<whileStatement>		::= "while" "(" <expression> ")" (<controlStructureBody> | ";");
+<whileStatement>		::= "while" <NL>* "(" <expression> ")" <NL>* (<controlStructureBody> | ";");
 
-<doWhileStatement>		::= "do" [<controlStructureBody>] "while" "(" <expression> ")";
+<doWhileStatement>		::= "do" <NL>* [<controlStructureBody>] <NL>* "while" <NL>* "(" <expression> ")";
 
-<assignment>			::= <directlyAssignableExpression> "=" <expression> |
-							<assignableExpression> <assignmentAndOperator> <expression>;
+<assignment>			::= <directlyAssignableExpression> "=" <NL>* <expression> |
+							<assignableExpression> <assignmentAndOperator> <NL>* <expression>;
+
+<semi> ::= (";" | "\n") "\n"*;
+
+<semis> ::= (";" | "\n")+;
+
+
+
+////////////////////////////////////////////////////////
+// Syntax Grammar : Expressions
+////////////////////////////////////////////////////////
+
+<expression>		::= <disjunction>;
+<disjunction>		::= preProcess(<conjunction>,
+						node("DISJUNCTION", node("EXPRESSION", <?>) (<NL>* "||" <NL>* node("EXPRESSION", <conjunction>))+) |
+						<?>
+					);
+
+<conjunction>		::= preProcess(<equality>,
+						node("CONJUNCTION", node("EXPRESSION", <?>) (<NL>* "&&" <NL>* node("EXPRESSION", <equality>))+) |
+						<?>
+					);
+				
+<equality>			::= preProcess(<comparison>,
+						node("EQUALITY", node("EXPRESSION", <?>) (attribute("OPERATOR", <equalityOperator>) <NL>* node("EXPRESSION", <comparison>))+) |
+						<?>
+					);
+				
+<comparison>		::= preProcess(<infixOperation>,
+						node("COMPARISON", node("EXPRESSION", <?>) attribute("OPERATOR", <comparisonOperator>) <NL>* node("EXPRESSION", <infixOperation>)) |
+						<?>
+					);
+					
+<infixOperation>	::= preProcess(<elvisExpression>,
+						node("IN", node("EXPRESSION", <?>) attribute("OPERATOR", <inOperator>)  <NL>* node("EXPRESSION", <elvisExpression>)) |
+						node("IS", node("EXPRESSION", <?>) attribute("OPERATOR", <isOperator>)  <NL>* node("TYPE", <type>)) |
+						<?>
+					);
+
+<elvisExpression>	::= preProcess(<infixFunctionCall>,
+						node("ELVIS", node("EXPRESSION", <?>) (<NL>* <elvis> <NL>* node("EXPRESSION", <infixFunctionCall>))+) |
+						<?>
+					);
+
+<elvis>				::= "?" ":";
+
+<infixFunctionCall>	::= preProcess(<rangeExpression>,
+						node("INFIX_FUNCTION_CALL", node("EXPRESSION", <?>) (<simpleIdentifier> <NL>* node("EXPRESSION", <rangeExpression>))+) |
+						<?>
+					);
+
+<rangeExpression>	::= preProcess(<additiveExpression>,
+						node("RANGE", node("EXPRESSION", <?>) (".." <NL>* node("EXPRESSION", <additiveExpression>))+) |
+						<?>
+					);
+
+<additiveExpression>::= preProcess(<multiplicativeExpression>,
+						node("ADD", node("EXPRESSION", <?>) (attribute("OPERATOR", <additiveOperator>) <NL>* node("EXPRESSION", <multiplicativeExpression>))+) |
+						<?>
+					);
+					
+<multiplicativeExpression>::= preProcess(<asExpression>,
+						node("MULTIPLY", node("EXPRESSION", <?>) (attribute("OPERATOR", <multiplicativeOperator>) <NL>* node("EXPRESSION", <asExpression>))+) |
+						<?>
+					);
+					
+<asExpression>		::= preProcess(<comparisonWithLiteralRightSide>,
+						node("AS", node("EXPRESSION", <?>) <NL>* attribute("OPERATOR", <asOperator>) <NL>* node("TYPE", <type>)) |
+						<?>
+					);
+					
+<comparisonWithLiteralRightSide>	::= preProcess(<prefixUnaryExpression>,
+						node("AS", node("EXPRESSION", <?>) (<NL>* "<" <NL>* attribute("LITERAL", <literalConstant>) <NL>* ">"  <NL>* node("EXPRESSION", (<parenthesizedExpression>|<expression>)))+) |
+						<?>
+					);
+
+<prefixUnaryExpression>	::= node("PREFIX", <unaryPrefix>+ node("EXPRESSION", <postfixUnaryExpression>)) |
+							<postfixUnaryExpression>;
+
+<unaryPrefix>			::= <annotation> | <label> | <prefixUnaryOperator> <NL>*;
+
+<postfixUnaryExpression>::= preProcess(<primaryExpression>,
+							node("POSTFIX", node("EXPRESSION", <?>) <postfixUnarySuffix>+) |
+							<?>
+						);
+
+<postfixUnarySuffix>	::= <postfixUnaryOperator> |
+							<typeArguments> |
+							<callSuffix> |
+							<indexingSuffix> |
+							<navigationSuffix>;
+
+<directlyAssignableExpression>	::= <postFixUnaryExpression> <assignableSuffix> |
+									node("IDENTIFIER", attribute("NAME", <simpleIdentifier>)) |
+									<parenthesizedDirectlyAssignableExpression>;
+
+<parenthesizedDirectlyAssignableExpression>	::= "(" <NL>* <directlyAssignableExpression> <NL>* ")";
+
+<assignableExpression>	::= <prefixUnaryExpression> | <parenthesizedAssignableExpression>;
+
+<parenthesizedAssignableExpression>	::= "(" <NL>* <assignableExpression> <NL>* ")";
+
+<assignableSuffix>		::= <typeArguments> | <indexingSuffix> | <navigationSuffix>;
+
+<indexingSuffix>		::= "[" <NL>* <expression> (<NL>* "," <NL>* <expression>)* [<NL>* ","] <NL>* "]";
+
+<navigationSuffix>		::= <NL>* <memberAccessOperator> <NL>* (<simpleIdentifier> | <parenthesizedExpression> | "class");
+
+<callSuffix>			::= [<typeArguments>] [<valueArguments>] <annotatedLambda> |
+							[<typeArguments>] <valueArguments>;
+
+<annotatedLambda>		::= (<annotation>)* [<label>] <NL>* <lambdaLiteral>;
+
+<typeArguments>			::= "<" <NL>* <typeProjection> (<NL>* "," <NL>* <typeProjection>)* [<NL>* ","] <NL>* ">";
+
+<valueArguments>		::= "(" <NL>* ")" |
+						"(" <NL>* <valueArgument> (<NL>* "," <NL>* <valueArgument>)* [<NL>* ","] <NL>* ")";
+
+<valueArgument>			::= [<annotation>] <NL>* [<simpleIdentifier> <NL>* "="< NL>*] ["*"] <NL>* <expression>;
+
+<primaryExpression>		::= <parenthesizedExpression> | 
+							<simpleIdentifier> |
+							<literalConstant> |
+							<stringLiteral> |
+							<callableReference> |
+							<functionLiteral> |
+							<objectLiteral> |
+							<collectionLiteral> |
+							<thisExpression> |
+							<superExpression> |
+							<ifExpression> |
+							<whenExpression> |
+							<tryExpression> |
+							<jumpExpression>;
+							
+<parenthesizedExpression>	::= "(" <NL>* <expression> <NL>* ")";
+
+<collectionLiteral>		::= "[" <NL>* [<expression> (<NL>* "," <NL>* <expression>)* [<NL>* ","] <NL>*] "]";
+
+///!!!!!!!!!!!!!!!!!
+
+<literalConstant>		::= <BOOLEAN_LITERAL> |
+							<NUMBER> |
+							"null";
+
+<stringLiteral>			::= <STRING>;
+
+
+///!!!!!!!!!!!!!!!!!
+
+
+<lambdaLiteral>			::= "{" <NL>* [[<lambdaParameters> <NL>*] "->" <NL>*] <statements> <NL>* "}";
+
+<lambdaParameters>		::= <lambdaParameter> (<NL>* "," <NL>* <lambdaParameter>)* [<NL>* ","];
+
+<lambdaParameter>		::= <variableDeclaration> | <multiVariableDeclaration> [<NL>* ":" <NL>* <type>];
+
+<anonymousFunction>		::= "fun" [<NL>* <type> <NL>* "."] <NL>* <parametersWithOptionalType>
+							[<NL>* ":" <NL>* <type>] [<NL>* <typeConstraints>]
+							[<NL>* <functionBody>];
+
+<functionLiteral>		::= <lambdaLiteral> | <anonymousFunction>;
+
+<objectLiteral>			::= "object" <NL>* [":" <NL>* <delegationSpecifiers> <NL>*] <classBody>;
+
+<thisExpression>		::= "this";
+
+<superExpression>		::= "super" ["<" <NL>* <type> <NL>* ">"] ["@" <simpleIdentifier>];
+
+<ifExpression>			::= "if" <NL>* "(" <NL>* <expression> <NL>* ")" <NL>* (<controlStructureBody> | ";") |
+							"if" <NL>* "(" <NL>* <expression> <NL>* ")" <NL>* [<controlStructureBody>] <NL>* [";"] <NL>* "else" <NL>* (<controlStructureBody> | ";");
+
+<whenSubject>			::= "(" [(<annotation>)* <NL>* "val" <NL>* <variableDeclaration> <NL>* "="<NL>* ] <expression> ")";
+
+<whenExpression>		::= "when" <NL>* [<whenSubject>] <NL>* "{" <NL>* (<whenEntry> <NL>*)* "}";
+
+<whenEntry>				::= <whenCondition> (<NL>* "," <NL>* <whenCondition>)* [<NL>* ","] <NL>* "->" <NL>* <controlStructureBody> [<semi>] |
+							"else" <NL>* "->" <NL>* <controlStructureBody> [<semi>];
+
+<whenCondition>			::= <expression> | <rangeTest> | <typeTest>;
+
+<rangeTest>				::= <inOperator> <NL>* <expression>;
+
+<typeTest>				::= <isOperator> <NL>* <type>;
+
+<tryExpression>			::= "try" <NL>* <block> ((<NL>* <catchBlock>)+ [<NL>* <finallyBlock>]|<NL>* <finallyBlock>);
+
+<catchBlock>			::= "catch" <NL>* "(" <NL>* <annotation>* <simpleIdentifier> ":" <type> [<NL>* ","] ")" <NL>* <block>;
+
+<finallyBlock>			::= "finally" <NL>* <block>;
+
+<jumpExpression>		::= "throw" <NL>* <expression> |
+							"return" <expression> |
+							"continue" |
+							"break";
+
+<callableReference>		::= [<receiverType>] <NL>* "::" <NL>* (<simpleIdentifier> | "class");
+
+<assignmentAndOperator>	::= "+=" | "-=" | "*=" | "/=" | "%=";
+
+<equalityOperator>		::= "!==" | "!=" | "===" | "==";
+
+<comparisonOperator>	::= "<=" | ">=" | "<" | ">";
+
+<inOperator>			::= "in" | "!in";
+
+<isOperator>			::= "is" | "!is";
+
+<additiveOperator>		::= "+" | "-";
+
+<multiplicativeOperator>::= "*" | "/" | "%";
+
+<asOperator>			::= "as" | "as?";
+
+<prefixUnaryOperator>	::= "++" | "--" | "+" | "-" | <excl>;
+
+<postfixUnaryOperator>	::= "++" | "--" | "!" <excl>;
+
+<excl>					::= "!";
+
+<memberAccessOperator>	::= "." | <safeNav> | "::";
+
+<safeNav>				::= "?" ".";
+
 
 
 ////////////////////////////////////////////////////////
@@ -377,11 +603,11 @@ parse(<kotlinFile>, <languageEscape>);
 							<propertyModifier> |
 							<inheritanceModifier> |
 							<parameterModifier> |
-							<platformModifier>;
+							<platformModifier> <NL>*;
 
 <typeModifiers>			::= <typeModifier>+;
 
-<typeModifier>			::= <annotation> | "suspend";
+<typeModifier>			::= <annotation> | "suspend" <NL>*;
 
 <classModifier>			::= "enum" | "sealed" | "annotation" | "data" | "inner";
 
@@ -393,7 +619,7 @@ parse(<kotlinFile>, <languageEscape>);
 
 <typeParameterModifiers>	::= <typeParameterModifier>+;
 
-<typeParameterModifier>	::= (<reificationModifier>|<varianceModifier>|<annotation>);
+<typeParameterModifier>	::= (<reificationModifier> <NL>* | <varianceModifier> <NL>* | <annotation>);
 
 <functionModifier>		::= "tailrec" | "operator" | "infix" | "inline" | "external" | "suspend";
 
@@ -412,15 +638,15 @@ parse(<kotlinFile>, <languageEscape>);
 // Syntax Grammar : Annotations
 ////////////////////////////////////////////////////////
 
-<annotation>			::= <singleAnnotation> | <multiAnnotation>;
+<annotation>			::= <singleAnnotation> | <multiAnnotation> <NL>*;
 
 <singleAnnotation>		::= <annotationUseSiteTarget> <unescapedAnnotation> |
 							"@" <unescapedAnnotation>;
 
-<multiAnnotation>		::= <annotationUseSiteTarget> "[" <unescapedAnnotation>+ "]" |
-							"@" "[" <unescapedAnnotation> "]";
+<multiAnnotation>		::= <annotationUseSiteTarget> <NL>* "[" <unescapedAnnotation>+ "]" |
+							"@[" <unescapedAnnotation> "]";
 
-<annotationUseSiteTarget>	::= "@" ("field" | "property" | "get" | "set" | "receiver" | "param" | "setparam" | "delegate") ":";
+<annotationUseSiteTarget>	::= ("@field" | "@property" | "@get" | "@set" | "@receiver" | "@param" | "@setparam" | "@delegate") <NL>* ":";
 
 <unescapedAnnotation>	::= <userType>;
 
@@ -477,225 +703,4 @@ parse(<kotlinFile>, <languageEscape>);
   ;
 
 <identifier>	::= <simpleIdentifier> ("." <simpleIdentifier>)*;
-
-
-
-////////////////////////////////////////////////////////
-// Syntax Grammar : Identifiers
-////////////////////////////////////////////////////////
-
-<expression>		::= <disjunction>;
-<disjunction>		::= preProcess(<conjunction>,
-						node("DISJUNCTION", node("EXPRESSION", <?>) ("||" node("EXPRESSION", <conjunction>))+) |
-						<?>
-					);
-
-<conjunction>		::= preProcess(<equality>,
-						node("CONJUNCTION", node("EXPRESSION", <?>) ("&&" node("EXPRESSION", <equality>))+) |
-						<?>
-					);
-				
-<equality>			::= preProcess(<comparison>,
-						node("EQUALITY", node("EXPRESSION", <?>) (attribute("OPERATOR", <equalityOperator>) node("EXPRESSION", <comparison>))+) |
-						<?>
-					);
-				
-<comparison>		::= preProcess(<infixOperation>,
-						node("COMPARISON", node("EXPRESSION", <?>) attribute("OPERATOR", <comparisonOperator>) node("EXPRESSION", <infixOperation>)) |
-						<?>
-					);
-					
-<infixOperation>	::= preProcess(<elvisExpression>,
-						node("IN", node("EXPRESSION", <?>) attribute("OPERATOR", <inOperator>)  node("EXPRESSION", <elvisExpression>)) |
-						node("IS", node("EXPRESSION", <?>) attribute("OPERATOR", <isOperator>)  node("TYPE", <type>)) |
-						<?>
-					);
-
-<elvisExpression>	::= preProcess(<infixFunctionCall>,
-						node("ELVIS", node("EXPRESSION", <?>) (<elvis> node("EXPRESSION", <infixFunctionCall>))+) |
-						<?>
-					);
-
-<elvis>				::= "?" ":";
-
-<infixFunctionCall>	::= preProcess(<rangeExpression>,
-						node("INFIX_FUNCTION_CALL", node("EXPRESSION", <?>) (<simpleIdentifier> node("EXPRESSION", <rangeExpression>))+) |
-						<?>
-					);
-
-<rangeExpression>	::= preProcess(<additiveExpression>,
-						node("RANGE", node("EXPRESSION", <?>) (".." node("EXPRESSION", <additiveExpression>))+) |
-						<?>
-					);
-
-<additiveExpression>::= preProcess(<multiplicativeExpression>,
-						node("ADD", node("EXPRESSION", <?>) (attribute("OPERATOR", <additiveOperator>)  node("EXPRESSION", <multiplicativeExpression>))+) |
-						<?>
-					);
-					
-<multiplicativeExpression>::= preProcess(<asExpression>,
-						node("MULTIPLY", node("EXPRESSION", <?>) (attribute("OPERATOR", <multiplicativeOperator>)  node("EXPRESSION", <asExpression>))+) |
-						<?>
-					);
-					
-<asExpression>		::= preProcess(<comparisonWithLiteralRightSide>,
-						node("AS", node("EXPRESSION", <?>) attribute("OPERATOR", <asOperator>)  node("TYPE", <type>)) |
-						<?>
-					);
-					
-<comparisonWithLiteralRightSide>	::= preProcess(<prefixUnaryExpression>,
-						node("AS", node("EXPRESSION", <?>) ("<" attribute("LITERAL", <literalConstant>) ">"  node("EXPRESSION", (<parenthesizedExpression>|<expression>)))+) |
-						<?>
-					);
-
-<prefixUnaryExpression>	::= node("PREFIX", <unaryPrefix>+ node("EXPRESSION", <postfixUnaryExpression>)) |
-							<postfixUnaryExpression>;
-
-<unaryPrefix>			::= <annotation> | <label> | <prefixUnaryOperator>;
-
-<postfixUnaryExpression>::= preProcess(<primaryExpression>,
-							node("POSTFIX", node("EXPRESSION", <?>) <postfixUnarySuffix>+) |
-							<?>
-						);
-
-<postfixUnarySuffix>	::= <postfixUnaryOperator> |
-							<typeArguments> |
-							<callSuffix> |
-							<indexingSuffix> |
-							<navigationSuffix>;
-
-<directlyAssignableExpression>	::= <postFixUnaryExpression> <assignableSuffix> |
-									node("IDENTIFIER", attribute("NAME", <simpleIdentifier>)) |
-									<parenthesizedDirectlyAssignableExpression>;
-
-<parenthesizedDirectlyAssignableExpression>	::= "(" <directlyAssignableExpression> ")";
-
-<assignableExpression>	::= <prefixUnaryExpression> | <parenthesizedAssignableExpression>;
-
-<parenthesizedAssignableExpression>	::= "(" <assignableExpression> ")";
-
-<assignableSuffix>		::= <typeArguments> | <indexingSuffix> | <navigationSuffix>;
-
-<indexingSuffix>		::= "[" <expression> ("," <expression>)* [","] "]";
-
-<navigationSuffix>		::= <memberAccessOperator> (<simpleIdentifier> | <parenthesizedExpression> | "class");
-
-<callSuffix>			::= [<typeArguments>] [<valueArguments>] <annotatedLambda> |
-							[<typeArguments>] <valueArguments>;
-
-<annotatedLambda>		::= (<annotation>)* [<label>] <lambdaLiteral>;
-
-<typeArguments>			::= "<" <typeProjection> ("," <typeProjection>)* [","] ">";
-
-<valueArguments>		::= "(" ")" |
-						"(" <valueArgument> ("," <valueArgument>)* [","] ")";
-
-<valueArgument>			::= [<annotation>] [<simpleIdentifier> "="] ["*"] <expression>;
-
-<primaryExpression>		::= <parenthesizedExpression> | 
-							<simpleIdentifier> |
-							<literalConstant> |
-							<stringLiteral> |
-							<callableReference> |
-							<functionLiteral> |
-							<objectLiteral> |
-							<collectionLiteral> |
-							<thisExpression> |
-							<superExpression> |
-							<ifExpression> |
-							<whenExpression> |
-							<tryExpression> |
-							<jumpExpression>;
-							
-<parenthesizedExpression>	::= "(" <expression> ")";
-
-<collectionLiteral>		::= "[" <expression> ("," <expression>)* [","] "]";
-
-<literalConstant>		::= <BOOLEAN_LITERAL> |
-							<NUMBER> |
-							"null";
-
-<stringLiteral>			::= <STRING>;
-
-<lambdaLiteral>			::= "{" [[<lambdaParameters>] "->"] <statements> "}";
-
-<lambdaParameters>		::= <lambdaParameter> ("," <lambdaParameter>)* [","];
-
-<lambdaParameter>		::= <variableDeclaration> | <multiVariableDeclaration> [":" <type>];
-
-<anonymousFunction>		::= "fun" [<type> "."] <parametersWithOptionalType>
-							[":" <type>] [<typeConstraints>]
-							[<functionBody>];
-
-<functionLiteral>		::= <lambdaLiteral> | <anonymousFunction>;
-
-<objectLiteral>			::= "object" [":" <delegationSpecifiers>] <classBody>;
-
-<thisExpression>		::= "this";
-
-<superExpression>		::= "super";
-
-<ifExpression>			::= "if" "(" <expression> ")" (<controlStructureBody> | ";") |
-							"if" "(" <expression> ")" [<controlStructureBody>] [";"] "else" (<controlStructureBody> | ";");
-
-<whenSubject>			::= "(" [(<annotation>)* "val" <variableDeclaration> "="] <expression> ")";
-
-<whenExpression>		::= "when" [<whenSubject>] "{" <whenEntry>* "}";
-
-<whenEntry>				::= <whenCondition> ("," <whenCondition>)* [","] "->" <controlStructureBody> [<semi>] |
-							"else" "->" <controlStructureBody> [<semi>];
-
-<whenCondition>			::= <expression> | <rangeTest> | <typeTest>;
-
-<rangeTest>				::= <inOperator> <expression>;
-
-<typeTest>				::= <isOperator> <type>;
-
-<tryExpression>			::= "try" <block> (<catchBlock>+ [<finallyBlock>]|<finallyBlock>);
-
-<catchBlock>			::= "catch" "(" <annotation>* <simpleIdentifier> ":" <type> [","] <block>;
-
-<finallyBlock>			::= "finally" <block>;
-
-<jumpExpression>		::= "throw" <expression> |
-							"return" <expression> |
-							"continue" |
-							"break";
-
-<callableReference>		::= [<receiverType>] "::" (<simpleIdentifier> | "class");
-
-<assignmentAndOperator>	::= "+=" | "-=" | "*=" | "/=" | "%=";
-
-<equalityOperator>		::= "!==" | "!=" | "===" | "==";
-
-<comparisonOperator>	::= "<=" | ">=" | "<" | ">";
-
-<inOperator>			::= "in" | "!in";
-
-<isOperator>			::= "is" | "!is";
-
-<additiveOperator>		::= "+" | "-";
-
-<multiplicativeOperator>::= "*" | "/" | "%";
-
-<asOperator>			::= "as" | "as?";
-
-<prefixUnaryOperator>	::= "++" | "--" | "+" | "-" | <excl>;
-
-<postfixUnaryOperator>	::= "++" | "--" | "!" <excl>;
-
-<excl>					::= "!";
-
-<memberAccessOperator>	::= "." | <safeNav> | "::";
-
-<safeNav>				::= "?" ".";
-
-
-////////////////////////////////////////////////////////
-// Placeholders for rules not yet implemented
-////////////////////////////////////////////////////////
-
-<semi> ::= fail();
-<semis> ::= fail();
-
 
