@@ -52,8 +52,8 @@ parse(<kotlinFile>, <languageEscape>);
 							<IDENTIFIER_TOKEN>
 						);
 
-<WHITESPACE>		::= " " | "\r" | "\n" | "\t";
-<NL>				::= token("\r\n" | "\n");
+<WHITESPACE>		::= " " | "\t";
+<NL>				::= token("\r" "\n" | "\n");
 
 <SHEBANG_LINE>		::= token( "#!" skip(<NL>) <NL>);
 
@@ -127,7 +127,7 @@ parse(<kotlinFile>, <languageEscape>);
 // Syntax Grammar : Packages
 ////////////////////////////////////////////////////////
 
-<packageHeader>		::= ["package" attribute("NAME", <identifier> [<semi>])];
+<packageHeader>		::= ["package" attribute("NAME", <identifier>) [<semi>]];
 
 
 ////////////////////////////////////////////////////////
@@ -222,9 +222,9 @@ parse(<kotlinFile>, <languageEscape>);
 								[<NL>* ":" <NL>* <delegationSpecifiers>]
 								[<NL>* <classBody>];
 
-<functionValueParameters>	::= "(" <NL>* [<functionValueParameter> (<NL>* "," <NL>* <functionValueParameter>) [<NL>* ","]] <NL>* ")";
+<functionValueParameters>	::= "(" <NL>* [<functionValueParameter> (<NL>* "," <NL>* <functionValueParameter>)* [<NL>* ","]] <NL>* ")";
 
-<functionValueParameter>	::= [<parameterModifiers>] <parameter> <NL>* "=" <NL>* <expression>;
+<functionValueParameter>	::= [<parameterModifiers>] <parameter> [<NL>* "=" <NL>* <expression>];
 
 <functionDeclaration>		::= [<modifiers>] "fun" [<NL>* <typeParameters>]
 								[<NL>* <receiverType> <NL>* "."]
@@ -232,7 +232,7 @@ parse(<kotlinFile>, <languageEscape>);
 								[<NL>* ":" <NL>* <type>] [<NL>* <typeConstraints>]
 								[<NL>* <functionBody>];
 
-<functionBody>				::= "=" <NL>* <expression>;
+<functionBody>				::= <block> | "=" <NL>* <expression>;
 
 <variableDeclaration>		::= node("DECLARATOR", <annotation>* <NL>* attribute("NAME", <simpleIdentifier>)
 								[<NL>* ":" <NL>* attribute("TYPE", <type>)]);
@@ -247,8 +247,8 @@ parse(<kotlinFile>, <languageEscape>);
 							[<NL>* <receiverType> "."]
 							<NL>* (<multiVariableDeclaration> | <variableDeclaration>)
 							[<NL>* <typeConstraints>]
-							[<NL>* "=" <NL>* attribute("DEFAULT", <expression> | <propertyDelegate>)] [<NL>* ";"]
-							<NL>* [<getter> [<NL>* [<semi>] <setter>] | <setter> [<NL>* [<semi>] <getter>]]
+							[<NL>* "=" <NL>* attribute("DEFAULT", <expression>) | <propertyDelegate>] [<NL>* ";"]
+							[<NL>* <getter> [<NL>* [<semi>] <setter>] | <NL>* <setter> [<NL>* [<semi>] <getter>]]
 							);
 
 <propertyDelegate>		::= "by" <NL>* <expression>;
@@ -344,7 +344,7 @@ parse(<kotlinFile>, <languageEscape>);
 
 <controlStructureBody>	::= <block> | <statement>;
 
-<block>					::= "{" <statements> "}";
+<block>					::= "{" <NL>* <statements> <NL>* "}";
 
 <loopStatement>			::= <forStatement> | <whileStatement> | <doWhileStatement>;
 
@@ -364,9 +364,9 @@ parse(<kotlinFile>, <languageEscape>);
 <assignment>			::= <directlyAssignableExpression> "=" <NL>* <expression> |
 							<assignableExpression> <assignmentAndOperator> <NL>* <expression>;
 
-<semi> ::= (";" | "\n") "\n"*;
+<semi> ::= (";" | <NL>) <NL>*;
 
-<semis> ::= (";" | "\n")+;
+<semis> ::= (";" | <NL>)+;
 
 
 
