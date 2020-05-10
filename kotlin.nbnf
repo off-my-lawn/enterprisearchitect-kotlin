@@ -135,9 +135,12 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 <importList>		::= <importHeader>*;
 
-<importHeader>		::= node("IMPORT", "import" <identifier> ["." "*" | <importAlias>]) [<semi>];
+<importHeader>		::= <eaElementImport> | <eaPackageImport>;
 
-<importAlias>		::= "as" <simpleIdentifier>;
+<eaElementImport>	::= node("ELEMENTIMPORT", "import" <identifierAsName> [<importAlias>]) [<semi>];
+<eaPackageImport>	::= node("PACKAGEIMPORT", "import" <identifierAsName> "." "*") [<semi>];
+
+<importAlias>		::= "as" attribute("ALIAS", <simpleIdentifier>);
 
 <topLevelObject>	::= <declaration> [<semis>];
 
@@ -155,12 +158,23 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 
 // Will require node("CLASS",...) and node("INTERFACE",...) to import
-<classDeclaration>	::= [<modifiers>] ("class" | ["fun" <NL>*] "interface") <NL>*
-						<simpleIdentifier> [<NL>* <typeParameters>]
+<classDeclaration>	::= <eaClass> | <eaInterface>;
+
+<eaClass>			::= node("CLASS", node("DECLARATION", <eaClassHeader>) [<NL>* <classBody> | <NL>* <enumClassBody>]);
+<eaInterface>		::= node("INTERFACE", node("DECLARATION", <eaInterfaceHeader>) [<NL>* <classBody> | <NL>* <enumClassBody>]);
+
+<eaClassHeader>		::= [<modifiers>] "class" <NL>*
+						<simpleIdentifierAsName> [<NL>* <typeParameters>]
 						[<primaryConstructor>]
 						[<NL>* ":" <NL>* <delegationSpecifiers>]
-						[<NL>* <typeConstraints>]
-						[<NL>* <classBody> | <NL>* <enumClassBody>];
+						[<NL>* <typeConstraints>];
+
+<eaInterfaceHeader>	::= [<modifiers>] ["fun" <NL>*] "interface" <NL>*
+						<simpleIdentifierAsName> [<NL>* <typeParameters>]
+						[<primaryConstructor>]
+						[<NL>* ":" <NL>* <delegationSpecifiers>]
+						[<NL>* <typeConstraints>];
+
 
 <primaryConstructor>::= [[<modifiers>] "constructor" <NL>*] <classParameters>;
 
@@ -170,8 +184,8 @@ parse(<kotlinFile>, <languageEscape>);
 <classParameters>	::= "(" <NL>* [<classParameter> (<NL>* "," <NL>* <classParameter>)* [<NL>* ","]] <NL>* ")";
 
 <classParameter>	::= node("PARAMETER", [<modifiers>]
-						["val" | "var"] <NL>* attribute("NAME", <simpleIdentifier>)
-						":" <NL>* attribute("TYPE", <type>)
+						["val" | "var"] <NL>* <simpleIdentifierAsName>
+						":" <NL>* <typeAsType>
 						[<NL>* "=" <NL>* attribute("DEFAULT", <expression>)]);
 
 <delegationSpecifiers>	::= <annotatedDelegationSpecifier> (<NL>* "," <NL>* <annotatedDelegationSpecifier>)*;
@@ -191,9 +205,9 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Generic Constraints
 ////////////////////////////////////////////////////////
-<typeParameters>	::= "<" <NL>* <typeParameter> (<NL>* "," <NL>* <typeParameter>)* [<NL>* ","] <NL>* ">";
+<typeParameters>	::= node("TEMPLATE", "<" <NL>* <typeParameter> (<NL>* "," <NL>* <typeParameter>)* [<NL>* ","] <NL>* ">");
 
-<typeParameter>		::= [<typeParameterModifiers>] <NL>* <simpleIdentifier> [<NL>* ":" <NL>* <type>];
+<typeParameter>		::= node("PARAMETER", [<typeParameterModifiers>] <NL>* <simpleIdentifierAsName> [<NL>* ":" <NL>* <typeAsType>]);
 
 
 ////////////////////////////////////////////////////////
@@ -218,24 +232,26 @@ parse(<kotlinFile>, <languageEscape>);
 
 <anonymousInitializer>		::= "init" <NL>* <block>;
 
-<companionObject>			::= [<modifiers>] "companion" <NL>* "object" [<NL>* <simpleIdentifier>]
-								[<NL>* ":" <NL>* <delegationSpecifiers>]
-								[<NL>* <classBody>];
+<companionObject>			::= node("CLASS", node("DECLARATION", [<modifiers>] attribute("STEREOTYPE", "companion") <NL>* "object" [<NL>* <simpleIdentifierAsName>]
+								[<NL>* ":" <NL>* <delegationSpecifiers>])
+								[<NL>* <classBody>]);
 
 <functionValueParameters>	::= "(" <NL>* [<functionValueParameter> (<NL>* "," <NL>* <functionValueParameter>)* [<NL>* ","]] <NL>* ")";
 
 <functionValueParameter>	::= [<parameterModifiers>] <parameter> [<NL>* "=" <NL>* <expression>];
 
-<functionDeclaration>		::= [<modifiers>] "fun" [<NL>* <typeParameters>]
+<functionDeclaration>		::= node("METHOD", node("DECLARATION", [<modifiers>] "fun" [<NL>* <typeParameters>]
 								[<NL>* <receiverType> <NL>* "."]
-								<NL>* <simpleIdentifier> <NL>* <functionValueParameters>
-								[<NL>* ":" <NL>* <type>] [<NL>* <typeConstraints>]
-								[<NL>* <functionBody>];
+								<NL>* <simpleIdentifierAsName> <NL>* <functionValueParameters>
+								[<NL>* ":" <NL>* <typeAsType>] [<NL>* <typeConstraints>])
+								[<NL>* <functionBody>]);
 
-<functionBody>				::= <block> | "=" <NL>* <expression>;
+<functionBody>				::= <block> | <eaFunctionExpression>;
+<eaFunctionBlock>			::= node("BODY", "{" <NL>* [attribute("CODE", <statements>)] <NL>* "}");
+<eaFunctionExpression>		::= node("BODY", "=" <NL>* attribute("CODE", <expression>));
 
-<variableDeclaration>		::= node("DECLARATOR", <annotation>* <NL>* attribute("NAME", <simpleIdentifier>)
-								[<NL>* ":" <NL>* attribute("TYPE", <type>)]);
+<variableDeclaration>		::= node("DECLARATOR", <annotation>* <NL>* <simpleIdentifierAsName>
+								[<NL>* ":" <NL>* <typeAsType>]);
 
 <multiVariableDeclaration>	::= "(" <NL>* [<variableDeclaration> (<NL>* "," <NL>* <variableDeclaration>)* [<NL>* ","]] <NL>* ")";
 
@@ -259,19 +275,19 @@ parse(<kotlinFile>, <languageEscape>);
 
 <parametersWithOptionalType>::= "(" <NL>* [<parameterWithOptionalType> (<NL>* "," <NL>* <parameterWithOptionalType>)* [<NL>* ","]] <NL>* ")";
 
-<parameterWithOptionalType>	::= node("PARAMETER", [<parameterModifiers>] attribute("NAME", <simpleIdentifier>)
-								<NL>* [":" <NL>* attribute("TYPE", <type>)]);
+<parameterWithOptionalType>	::= node("PARAMETER", [<parameterModifiers>] <simpleIdentifierAsName>
+								<NL>* [":" <NL>* <typeAsType>]);
 								
-<parameter>					::= node("PARAMETER", [<parameterModifiers>] attribute("NAME", <simpleIdentifier>)
-								<NL>* ":" <NL>* attribute("TYPE", <type>));
+<parameter>					::= node("PARAMETER", [<parameterModifiers>] <simpleIdentifierAsName>
+								<NL>* ":" <NL>* <typeAsType>);
 
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Object expressions and Declarations
 ////////////////////////////////////////////////////////
-<objectDeclaration>	::= [<modifiers>] "object" <NL>* <simpleIdentifier>
-						[<NL>* ":" <NL>* <delegationSpecifiers>]
-						[<NL>* <classBody>];
+<objectDeclaration>	::= node("CLASS", node("DECLARATION", [<modifiers>] "object" attributeEx("STEREOTYPE", "singleton") <NL>* <simpleIdentifierAsName>
+						[<NL>* ":" <NL>* <delegationSpecifiers>])
+						[<NL>* <classBody>]);
 
 <secondaryConstructor>	::= [<modifiers>] "constructor" <NL>* <functionValueParameters>
 							[<NL>* ":" <NL>* <constructorDelegationCall>] <NL>* <block>;
@@ -704,3 +720,8 @@ parse(<kotlinFile>, <languageEscape>);
 
 <identifier>	::= <simpleIdentifier> ("." <simpleIdentifier>)*;
 
+
+<identifierAsName>			::= node("NAME", <simpleIdentifierAsNamePart> ("." <simpleIdentifierAsNamePart>)*);
+<simpleIdentifierAsName>	::= attribute("NAME", <simpleIdentifier>);
+<simpleIdentifierAsNamePart>::= attribute("NAMEPART", <simpleIdentifier>);
+<typeAsType>				::= attribute("TYPE", <TYPE>);
