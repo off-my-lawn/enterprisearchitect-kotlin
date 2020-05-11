@@ -310,7 +310,7 @@ parse(<kotlinFile>, <languageEscape>);
 // Syntax Grammar : Types
 ////////////////////////////////////////////////////////
 
-<type>		::= [<typeModifiers>] (<nullableType>|<parenthesizedType>|<typeReference>|<functionType>);
+<type>		::= [<typeModifiers>] (<nullableType>|<functionType>|<parenthesizedType>|<typeReference>);
 
 <typeReference>	::= <userType> | "dynamic";
 
@@ -610,10 +610,10 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Modifiers
 ////////////////////////////////////////////////////////
-<modifiers>				::= <annotation> | <modifier>+;
+<modifiers>				::= (<annotation> <NL>* | <modifier>)+;
 
 // This is going to require substantial rework to make it behave nicely for Enterprise Architect
-<parameterModifiers>	::= <annotation> | <parameterModifier>+;
+<parameterModifiers>	::= (<annotation> <NL>*)+ | <parameterModifier>+;
 
 <modifier>				::= <classModifier> |
 							<memberModifier> |
@@ -667,7 +667,7 @@ parse(<kotlinFile>, <languageEscape>);
 
 <annotationUseSiteTarget>	::= ("@field" | "@property" | "@get" | "@set" | "@receiver" | "@param" | "@setparam" | "@delegate") <NL>* ":";
 
-<unescapedAnnotation>	::= <userType>;
+<unescapedAnnotation>	::= <constructorInvocation> | <userType>;
 
 ////////////////////////////////////////////////////////
 // Syntax Grammar : Identifiers
