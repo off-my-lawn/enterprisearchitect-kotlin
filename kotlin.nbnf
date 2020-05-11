@@ -227,7 +227,7 @@ parse(<kotlinFile>, <languageEscape>);
 								<anonymousInitializer> |
 								<secondaryConstructor>;
 
-<anonymousInitializer>		::= "init" <NL>* <block>;
+<anonymousInitializer>		::= "init" <NL>* <skippedblock>;
 
 <companionObject>			::= node("CLASS", node("DECLARATION", [<modifiers>] attribute("STEREOTYPE", "companion") <NL>* "object" [<NL>* <simpleIdentifierAsName>]
 								[<NL>* ":" <NL>* <delegationSpecifiers>])
@@ -288,7 +288,7 @@ parse(<kotlinFile>, <languageEscape>);
 						[<NL>* <classBody>]);
 
 <secondaryConstructor>	::= [<modifiers>] "constructor" <NL>* <functionValueParameters>
-							[<NL>* ":" <NL>* <constructorDelegationCall>] <NL>* <block>;
+							[<NL>* ":" <NL>* <constructorDelegationCall>] <NL>* [<block>];
 
 <constructorDelegationCall>	::= "this" <NL>* <valueArguments> |
 								"super" <NL>* <valueArguments>;
