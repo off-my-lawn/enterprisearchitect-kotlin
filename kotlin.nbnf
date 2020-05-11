@@ -358,11 +358,13 @@ parse(<kotlinFile>, <languageEscape>);
 // Syntax Grammar : Returns and jumps
 ////////////////////////////////////////////////////////
 
-<label>					::= <simpleIdentifier> "@" <NL>*;
+<label>					::= (<simpleIdentifier> | "this") "@" <NL>*;
 
-<controlStructureBody>	::= <block> | <statement>;
+<controlStructureBody>	::= <skippedblock> | <statement>;
 
 <block>					::= "{" <NL>* <statements> <NL>* "}";
+
+<skippedblock>			::= node("BODY", "{" skipBalanced("{", "}", <languageEscape>) "}");
 
 <loopStatement>			::= <forStatement> | <whileStatement> | <doWhileStatement>;
 
@@ -550,8 +552,13 @@ parse(<kotlinFile>, <languageEscape>);
 
 <superExpression>		::= "super" ["<" <NL>* <type> <NL>* ">"] ["@" <simpleIdentifier>];
 
-<ifExpression>			::= "if" <NL>* "(" <NL>* <expression> <NL>* ")" <NL>* (<controlStructureBody> | ";") |
-							"if" <NL>* "(" <NL>* <expression> <NL>* ")" <NL>* [<controlStructureBody>] <NL>* [";"] <NL>* "else" <NL>* (<controlStructureBody> | ";");
+// Again, EA greedy parser interferes here.
+<ifExpression>			::= "if" <NL>* "(" <NL>* <expression> <NL>* ")" <NL>* <eaIfBody>;
+
+// My understanding from the source grammar is that you can have an else without any kind of body
+// It's easiest to check for that case first in EA
+<eaIfBody>				::= <eaElse> | (<controlStructureBody> | ";") [<eaElse>];
+<eaElse>				::= "else" <NL>* (<controlStructureBody> | ";");
 
 <whenSubject>			::= "(" [(<annotation>)* <NL>* "val" <NL>* <variableDeclaration> <NL>* "="<NL>* ] <expression> ")";
 
