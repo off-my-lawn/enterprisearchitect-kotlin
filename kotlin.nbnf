@@ -244,7 +244,8 @@ parse(<kotlinFile>, <languageEscape>);
 								[<NL>* <functionBody>]);
 
 <functionBody>				::= <eaFunctionBlock> | <eaFunctionExpression>;
-<eaFunctionBlock>			::= node("BODY", "{" <NL>* [attribute("CODE", <statements>)] <NL>* "}");
+<eaFunctionBlock>			::= node("BODY", "{" skipBalanced("{", "}", <languageEscape>) "}");
+//<eaFunctionBlock>			::= node("BODY", "{" <NL>* [attribute("CODE", <statements>)] <NL>* "}");
 <eaFunctionExpression>		::= node("BODY", "=" <NL>* attribute("CODE", <expression>));
 
 <variableDeclaration>		::= node("DECLARATOR", <annotation>* <NL>* <simpleIdentifierAsName>
