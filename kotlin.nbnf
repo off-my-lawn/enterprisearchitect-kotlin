@@ -310,7 +310,7 @@ parse(<kotlinFile>, <languageEscape>);
 // Syntax Grammar : Types
 ////////////////////////////////////////////////////////
 
-<type>		::= [<typeModifiers>] (<parenthesizedType>|<nullableType>|<typeReference>|<functionType>);
+<type>		::= [<typeModifiers>] (<nullableType>|<parenthesizedType>|<typeReference>|<functionType>);
 
 <typeReference>	::= <userType> | "dynamic";
 
@@ -331,7 +331,7 @@ parse(<kotlinFile>, <languageEscape>);
 
 <functionType>				::= [<receiverType> <NL>* "." <NL>*] <functionTypeParameters> <NL>* "->" <NL>* <type>;
 
-<functionTypeParameters>	::= "(" <NL>* (<parameter>|<type>) (<NL>* "," <NL>* (<parameter>|<type>))* [<NL>* ","] <NL>* ")";
+<functionTypeParameters>	::= "(" <NL>* [<parameter>|<type>] (<NL>* "," <NL>* (<parameter>|<type>))* [<NL>* ","] <NL>* ")";
 
 <parenthesizedType>			::= "(" <NL>* <type> <NL>* ")";
 
