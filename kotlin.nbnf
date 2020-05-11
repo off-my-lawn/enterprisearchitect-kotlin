@@ -68,7 +68,6 @@ parse(<kotlinFile>, <languageEscape>);
 						<HEX_FLOAT_NUMBER> |
 						<DEC_FLOAT_NUMBER> |
 						<HEX_NUMBER> ["l" | "L"] |
-						<OCT_NUMBER> ["l" | "L"] |
 						<DEC_NUMBER> ["l" | "L"]
 					);
 
@@ -87,8 +86,6 @@ parse(<kotlinFile>, <languageEscape>);
 						"0" ("x" | "X") ("0".."9" | "a".."f" | "A".."F")+ [("p" | "P") ["+" | "-"] ("0".."9" | "a".."f" | "A".."F")+] ("f" | "F" | "d" | "D");
 
 <DEC_NUMBER>		::= "0".."9"+;
-
-<OCT_NUMBER>		::= "0" "0".."7"+;
 
 <HEX_NUMBER>		::= "0" ("x" | "X") ("0".."9" | "a".."f" | "A".."F")+;
 
@@ -135,7 +132,7 @@ parse(<kotlinFile>, <languageEscape>);
 ////////////////////////////////////////////////////////
 <importList>		::= <importHeader>*;
 
-<importHeader>		::= <eaElementImport> | <eaPackageImport>;
+<importHeader>		::= <eaPackageImport> | <eaElementImport>;
 
 <eaElementImport>	::= node("ELEMENTIMPORT", "import" <identifierAsName> [<importAlias>]) [<semi>];
 <eaPackageImport>	::= node("PACKAGEIMPORT", "import" <identifierAsName> "." "*") [<semi>];
@@ -241,12 +238,12 @@ parse(<kotlinFile>, <languageEscape>);
 <functionValueParameter>	::= [<parameterModifiers>] <parameter> [<NL>* "=" <NL>* <expression>];
 
 <functionDeclaration>		::= node("METHOD", node("DECLARATION", [<modifiers>] "fun" [<NL>* <typeParameters>]
-								[<NL>* <receiverType> <NL>* "."]
+								[<NL>* <eaReceiverType>]
 								<NL>* <simpleIdentifierAsName> <NL>* <functionValueParameters>
 								[<NL>* ":" <NL>* <typeAsType>] [<NL>* <typeConstraints>])
 								[<NL>* <functionBody>]);
 
-<functionBody>				::= <block> | <eaFunctionExpression>;
+<functionBody>				::= <eaFunctionBlock> | <eaFunctionExpression>;
 <eaFunctionBlock>			::= node("BODY", "{" <NL>* [attribute("CODE", <statements>)] <NL>* "}");
 <eaFunctionExpression>		::= node("BODY", "=" <NL>* attribute("CODE", <expression>));
 
@@ -338,6 +335,10 @@ parse(<kotlinFile>, <languageEscape>);
 <parenthesizedType>			::= "(" <NL>* <type> <NL>* ")";
 
 <receiverType>				::= [<typeModifiers>] (<parenthesizedType> | <nullableType> | <typeReference>);
+
+// Because the Enterprise Architect parser is greedy we need to ensure that the usertype doesn't consume a following name
+<eaReceiverType>			::=[<typeModifiers>] (<parenthesizedType> <NL>* "." | <nullableType> <NL>* "." | "simple" <NL>* "." | <eaUserTypeQualifier>);
+<eaUserTypeQualifier>		::= (<simpleUserType> <NL>* ".")*;
 
 <parenthesizedUserType>		::= "(" <NL>* (<userType>|<parenthesizedUserType>) <NL>* ")";
 
@@ -523,7 +524,8 @@ parse(<kotlinFile>, <languageEscape>);
 							<NUMBER> |
 							"null";
 
-<stringLiteral>			::= <STRING>;
+<stringLiteral>			::= "\"" <STRING_BODY> "\"" |
+							"\'" <CHAR_BODY> "\'";
 
 
 ///!!!!!!!!!!!!!!!!!
@@ -569,10 +571,10 @@ parse(<kotlinFile>, <languageEscape>);
 
 <finallyBlock>			::= "finally" <NL>* <block>;
 
-<jumpExpression>		::= "throw" <NL>* <expression> |
-							"return" <expression> |
-							"continue" |
-							"break";
+<jumpExpression>		::= node("THROW", "throw" <NL>* <expression>) |
+							node("RETURN", "return" <expression>) |
+							node("CONTINUE", "continue") |
+							node("BREAK", "break");
 
 <callableReference>		::= [<receiverType>] <NL>* "::" <NL>* (<simpleIdentifier> | "class");
 
